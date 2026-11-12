@@ -200,6 +200,8 @@ textarea.inp{resize:vertical;font-family:ui-monospace,Menlo,monospace;font-size:
 .evchip.irr{background:var(--ev-irr-bg);color:var(--ev-irr)}.evchip.amb{background:var(--ev-amb-bg);color:var(--ev-amb)}.evchip.att{background:var(--ev-att-bg);color:var(--ev-att)}.evchip.rea{background:var(--ev-rea-bg);color:var(--ev-rea)}.evchip.low{background:var(--ev-low-bg);color:var(--ev-low)}
 body.gated nav.tabs,body.gated #who{display:none}
 .gate{max-width:420px;margin:8vh auto 0;padding:0 4px}.gate h2{font-size:40px;text-transform:uppercase;margin:0 0 14px;line-height:1}.gate h2 span{color:var(--run)}.gate p{line-height:1.45}
+.gmem summary{list-style:none;cursor:pointer}.gmem summary::-webkit-details-marker{display:none}.gmem .wk{padding:0 0 10px 40px}.gmem[open] summary{border-bottom:0}
+.wkl{display:flex;gap:10px;font-size:13px;padding:3px 0}.wkl>span{width:30px;color:var(--mut);flex:none}.wkl.tdy>span{color:var(--run);font-weight:700}.wkl b.ok{color:var(--ev-att)}
 </style>
 </head>
 <body>
@@ -284,8 +286,8 @@ function makeEngine(S,H){ H=H||{};
   const LVL=P.level==='debutant'?{f:0.75,lr:0.8,cyc:3}:P.level==='expert'?{f:1.2,lr:1.1,cyc:4}:{f:1,lr:1,cyc:null};
   const N_=n=>Math.max(1,Math.round(n*LVL.f));
   const tm=(d,pct)=>d/(kmh(pct)/3.6)/60;
-  const WARM=(w=20)=>w+"' footing en EF (FC < "+hr(70)+' bpm) + gammes (montées de genoux, talons-fesses, pas chassés, foulées bondissantes : 2 × 30 m chacune) + 3 lignes droites progressives de 80 m';
-  const WARM_HILL=(w=20)=>w+"' footing jusqu'à la côte (FC < "+hr(70)+' bpm) + gammes + 2 montées progressives de 20"';
+  const WARM=(w=20,g)=>w+"' footing en EF (FC < "+hr(70)+' bpm)'+(g?' + gammes (montées de genoux, talons-fesses, pas chassés, foulées bondissantes : 2 × 30 m chacune)':'')+' + 3 lignes droites progressives de 80 m';
+  const WARM_HILL=(w=20)=>w+"' footing jusqu'à la côte (FC < "+hr(70)+' bpm) + 2 montées progressives de 20"';
   const COOL=(w=10)=>w+"' footing très lent (FC < "+hr(65)+' bpm) puis étirements doux';
 
   /* ----- bibliothèques (mm = durée du corps de séance, récup comprises) ----- */
@@ -462,7 +464,7 @@ function makeEngine(S,H){ H=H||{};
     const hill=kind==='COTES'; const typ={VMAC:'VMA courte',VMAL:'VMA longue',SEUIL:'Seuil',COTES:'Côtes'}[kind];
     const terrain= hill?'Côte de 150–400 m' : (m==='piste'?'Sur piste (400 m)':'Sur route/chemin plat, montre GPS en mode intervalles');
     return {cat:'run',type:typ,title:s.t,sum:terrain,dur:Math.round((w+s.mm+cl)/5)*5,q:true,qk:kind,qm:m,wk:{warm:true,blocks:s.wk},
-      blocks:[{h:'Échauffement',l:[hill?WARM_HILL(w):WARM(w)]},{h:'Corps de séance · '+terrain,l:s.l},{h:'Retour au calme',l:[COOL(cl)]}]};
+      blocks:[{h:'Échauffement',l:[hill?WARM_HILL(w):WARM(w,kind==='VMAC'||kind==='VMAL')]},{h:'Corps de séance · '+terrain,l:s.l},{h:'Retour au calme',l:[COOL(cl)]}]};
   }
   function specific(c,idx){
     const k=c.kind, r=c.target;
@@ -494,7 +496,7 @@ function makeEngine(S,H){ H=H||{};
       {t:'Endurance longue',l:['400 m échauffement','3 × 500 m à '+swP(8)+' (le 3e en pull + plaquettes) — r 30"','4 × 25 m vite — r 20"','200 m souple'],v:2200},
       {t:'Vitesse & relances',l:['300 m échauffement','8 × 25 m sprint départ — r 30"','3 séries de 4 × 100 m à '+swP(-2)+' — r 10", R 1\' entre séries','200 m souple'],v:2000},
     ];
-    let order = ph==='base'?[0,3,1,0,4]: ph==='dev'?[1,2,3,4,1]: [2,1,2,3,2];
+    let order = ph==='base'?[0,3,1,4]: ph==='dev'?[1,2,3,4]: [2,1,2,3];
     const b=bigs(c.swimT);
     if(b){ const X=r50(Math.min(b.bs*prog(c),2000));
       lib[2]={t:'Spécifique swimrun · Big Swim',l:['300 m échauffement','6 × 50 m crawl "tête haute" 1 temps sur 6 (visée) — r 15"','Big Swim : '+X+' m continu pull-buoy + plaquettes à '+swP(8)+' (ton plus long segment : '+b.bs+' m)','4 × 100 m à '+swP(2)+' — r 15"','200 m souple'],v:1200+X};
@@ -589,7 +591,7 @@ function makeEngine(S,H){ H=H||{};
     if(r.type==='route'){ const v=(+r.km)/(t/3600); l.push('Allure : '+pace(v)+'. Pars 2–3 s/km plus lent les 2 premiers km'); }
     if(r.type==='nature') l.push('Gère à la FC en montée (sous '+hr(88)+' bpm au début), relance sur le plat et en descente');
     if(r.type==='swimrun') l.push('Nage ~'+swP(10)+', course à la sensation, transitions rapides');
-    l.push(t<3600*1.2?"Échauffement : 15' footing + gammes + 3 accélérations":"Échauffement : 10' footing léger, le début de course sert d'échauffement");
+    l.push(t<3600*1.2?"Échauffement : 15' footing + 3 accélérations":"Échauffement : 10' footing léger, le début de course sert d'échauffement");
     return {cat:'race',type:'Course',title:'🏁 '+r.name,sum:desc+' · priorité '+r.prio,dur:Math.round(t/60),blocks:[{h:'Jour de course',l}]};
   }
 
@@ -670,7 +672,8 @@ function makeEngine(S,H){ H=H||{};
     CAP=Infinity;
     for(const {r,d} of raceDays) out[d].unshift(raceSession(r));
     // natation
-    if(c.swimT||P.swimAllYear){
+    const sMin=Math.max(+P.swimMin||0,P.swimAllYear&&P.swimMin==null?1:0);
+    if(c.swimT||sMin>0){
       let nS, sph;
       if(!c.swimT){ nS=1; sph='base'; }
       else if(c.sw===0){ nS=1; sph='race'; }
@@ -679,6 +682,7 @@ function makeEngine(S,H){ H=H||{};
       else if(c.sw<=12){ nS=2; sph='dev'; }
       else { nS=1; sph='base'; }
       if(ph==='Récupération') nS=1;
+      if(sph!=='race') nS=Math.max(nS,Math.min(sMin,4)); // minimum choisi par le sportif
       const blocked=new Set(); raceDays.forEach(({d})=>{blocked.add(d);blocked.add(d-1);});
       const qDays=Object.entries(runMap).filter(([k,v])=>v==='Q1'||v==='Q2').map(([k])=>+k);
       const ow = c.swimT && c.sw>=1 && c.sw<=8;
@@ -692,7 +696,7 @@ function makeEngine(S,H){ H=H||{};
         if(brick&&i===0){ s=swimBrick(c); s.alts=null; out[d].push(s); return; }
         if(ow && i===chosen.length-1 && chosen.length>1) s=swimOW(c,iw);
         else if(ow && chosen.length===1 && iw%2) s=swimOW(c,iw);
-        else s=swimPool(c,iw*2+i,sph==='race'?'race':sph==='taper'?'taper':sph==='spe'?'spe':sph);
+        else s=swimPool(c,iw+i,sph==='race'?'race':sph==='taper'?'taper':sph==='spe'?'spe':sph);
         s.alts=altsFor(s,c,iw,Infinity); out[d].push(s); });
     }
     // renfo
@@ -849,7 +853,7 @@ function mergeAth(o){
   const d=defaultState(); o=purgeOld(o||{}); const op=o.profile||{};
   const prof=Object.assign(d.profile,op,{avail:Object.assign(d.profile.avail,op.avail||{})});
   if(prof.vmaMode==='alterne') prof.vmaMode='alt1';
-  return {profile:prof,races:o.races||[],done:o.done||{},feel:o.feel||{},moves:o.moves||{},blocks:o.blocks||[],swaps:o.swaps||{},frozen:o.frozen||null,workouts:o.workouts||[],customs:o.customs||[]};
+  return {profile:prof,races:o.races||[],done:o.done||{},feel:o.feel||{},moves:o.moves||{},blocks:o.blocks||[],swaps:o.swaps||{},frozen:o.frozen||null,workouts:o.workouts||[],customs:o.customs||[],edits:o.edits||{},real:o.real||{}};
 }
 function migrate(o){ o=o||{};
   if(Array.isArray(o.profiles)&&o.profiles.length) return {profiles:o.profiles.slice(0,Math.max(MAXATH,20)).map((p,i)=>({id:String(p.id||('p'+i)),name:p.name||'Sportif',color:p.color||COLORS[i%COLORS.length],data:mergeAth(p.data)})),active:o.active,savedAt:o.savedAt||null,lastBackup:o.lastBackup||null,settings:Object.assign({coachView:true,noSwipe:false},o.settings||{})};
@@ -867,7 +871,7 @@ function engineFor(pid,hooks){ const p=ath(pid); if(!p) return null;
   const withCustoms=base=>Object.assign({},base,{buildWeek:ws=>{ const r=base.buildWeek(ws); const we=ymd(addDays(ws,6)), w0=ymd(ws);
     for(const c of (p.data.customs||[])){ if(c.date<w0||c.date>we) continue; const s=wbSession(live,c.w); s.key=c.date+'|'+s.title+'|'+c.id; s.orig=c.date; s.cw=c.w; s.cid=c.id;
       const mv=(p.data.moves||{})[s.key], d=mv&&mv>=w0&&mv<=we?parseD(mv):parseD(c.date); if(mv) s.moved=true; r.days[wd(d)].push(s); }
-    return r; }});
+    return applyEdits(r,p.data); }});
   if(!fz||!fz.until||!fz.cfgs||!fz.cfgs.length) return withCustoms(live);
   const cache={};
   return withCustoms(Object.assign({},live,{buildWeek:ws=>{ const k=ymd(ws); if(k>=fz.until) return live.buildWeek(ws);
@@ -939,15 +943,15 @@ async function offerFile(name,data){
 
 /* ---------- navigation ---------- */
 function renderTabs(){
-  const sub=['races','team','prof','guide','admin','group','gjoin'].includes(view)?'more':view;
-  $('#tabs').innerHTML=[['today',"Aujourd'hui"],['plan','Programme'],['watch','Montre'],['more','Plus']].map(([k,l])=>
+  const sub=['watch','team','prof','guide','admin','group','gjoin'].includes(view)?'more':view;
+  $('#tabs').innerHTML=[['today',"Aujourd'hui"],['plan','Programme'],['races','Courses'],['more','Plus']].map(([k,l])=>
     `<button class="${sub===k?'on':''}" data-tab="${k}" ${sub===k?'aria-current="page"':''}>${ICON[k]}<span>${l}</span></button>`).join('');
 }
 function render(){
   if(GATE){ document.body.classList.add('gated'); $('#main').innerHTML=gateView(); setSync(); renderWho(); return; } document.body.classList.remove('gated');
   if(view==='admin'&&!(G.on&&G.admin)) view='more'; if(view==='team'&&G.on&&!G.admin) view='group';
   renderTabs(); setSync();
-  const back=['races','team','prof','guide','admin','group','gjoin'].includes(view)?'<button class="back" data-tab="more">‹ Plus</button>':'';
+  const back=['watch','team','prof','guide','admin','group','gjoin'].includes(view)?'<button class="back" data-tab="more">‹ Plus</button>':'';
   $('#main').innerHTML= back+(view==='today'?todayView(): view==='plan'?planView(): view==='more'?moreView(): view==='races'?racesView(): view==='guide'?guideView(): view==='team'?teamView(): view==='watch'?watchView(): view==='admin'?adminView(): view==='group'?groupView(): view==='gjoin'?joinView(): profView());
   renderWho(); if(modalKind==='fiche') drawFiche(); }
 const closeModal=()=>{ $('#modal').classList.remove('show','full'); modalKind=null; };
@@ -1109,7 +1113,8 @@ function profView(){
   <label class="f">Test CSS : temps 400 m et 200 m</label><div class="grid2"><input class="inp" id="s400" placeholder="400 m ex. 7:40"><input class="inp" id="s200" placeholder="200 m ex. 3:35"></div>
   <div class="row" style="margin-top:8px"><button class="btn ghost sm" id="sapply">Calculer ma CSS</button></div>
   <p class="hint">CSS utilisée : <b>${fmtPaceSec(EN.css())}/100 m</b>${P.css?'':' (estimée depuis ton 100 m)'}.</p>
-  <div class="toggle"><span>Natation toute l'année (1 séance/sem.) même sans swimrun prévu</span><button class="sw ${P.swimAllYear?'on':''}" data-tog="swimAllYear" aria-label="Natation toute l'année"></button></div></div>
+  <label class="f">Séances de natation minimum par semaine</label><div class="seg">${[0,1,2,3,4].map(n=>`<button class="${swimMinOf(P)===n?'on':''}" data-smin="${n}">${n}</button>`).join('')}</div>
+  <p class="hint">Toute l'année, avec ou sans swimrun prévu. En préparation swimrun, l'appli peut en ajouter (jamais moins). Il faut au moins autant de jours cochés « Natation » dans les disponibilités${P.avail.swim.length<swimMinOf(P)?' : <b>tu n\'en as coché que '+P.avail.swim.length+'</b>':''}.</p></div>
 
   <div class="card sec"><h3>Disponibilités</h3><div class="avail"><span></span>${DSHORT.map(d=>`<span class="h">${d[0]}</span>`).join('')}
   <span>Course</span>${av('run','run')}<span>Natation</span>${av('swim','swim')}<span>Renfo</span>${av('renfo','renfo')}</div>
@@ -1206,6 +1211,7 @@ document.addEventListener('click',async e=>{
   else if(t=e.target.closest('[data-vm]')){ P.vmaMode=t.dataset.vm; save(); render(); }
   else if(t=e.target.closest('[data-lr]')){ P.lrDay=t.dataset.lr===''?null:+t.dataset.lr; if(P.lrDay!=null&&!P.avail.run.includes(P.lrDay)) P.avail.run=[...P.avail.run,P.lrDay].sort(); save(); render(); }
   else if(t=e.target.closest('[data-sex]')){ P.sex=t.dataset.sex; save(); render(); }
+  else if(t=e.target.closest('[data-smin]')){ P.swimMin=+t.dataset.smin; P.swimAllYear=P.swimMin>0; save(); render(); }
   else if(t=e.target.closest('[data-tog]')){ P[t.dataset.tog]=!P[t.dataset.tog]; save(); render(); }
   else if(t=e.target.closest('[data-pref]')){ const [ty,id]=t.dataset.pref.split('|'); P.prefs=Object.assign({},P.prefs); if(id) P.prefs[ty]=id; else delete P.prefs[ty]; save(); render(); }
   else if(t=e.target.closest('[data-lvl]')){ P.level=t.dataset.lvl; save(); render(); toast('Niveau : '+t.textContent+' (semaine en cours et suivantes)'); }
@@ -1303,7 +1309,7 @@ function guideView(){
   <p class="hint" style="margin:0 0 12px">Touche un thème pour l'ouvrir.</p><div class="list">
   ${G.on||ROOT.profiles.length>1?sec('club','Le club (groupe)',`<ul>
    <li><b>Ton lien personnel</b> ouvre ton programme : ajoute-le à l'écran d'accueil (Safari › Partager › « Sur l'écran d'accueil »). Ne le transmets pas : il permet de modifier ton programme.</li>
-   <li><b>Plus › Groupe</b> : le calendrier du club, avec les courses et objectifs de chacun. Tu ne modifies que ton profil et tes courses.</li>
+   <li><b>Plus › Groupe</b> : qui s'entraîne aujourd'hui, la semaine et les séances faites de chacun, et le calendrier des courses avec les objectifs. Tu ne modifies que ton profil et tes courses.</li>
    <li><b>Séances club</b> : quand plusieurs sportifs ont une séance de qualité le même jour, l'appli leur donne la même (chacun à ses allures et à son nombre de répétitions). Pas en phase spécifique ni en semaine de course. Désactivable dans Profil.</li>
    <li><b>Courses en commun</b> : même course = préparations calées sur la même date ; « Aussi au départ » l'indique. Binômes swimrun : eau libre et enchaînés placés les mêmes jours si vos disponibilités le permettent.</li>
    <li><b>Hors ligne</b> : l'appli fonctionne sans réseau et envoie tes modifications au retour de la connexion.</li>
@@ -1341,7 +1347,7 @@ function guideView(){
    <li>Dans la conversation, touche le fichier : l'aperçu s'ouvre, ajoute la séance à ta montre. Elle est dans l'appli Exercice, Course en extérieur.</li></ol>
    <p><b>Plus rapide : demande à Claude</b><br>Dans la conversation avec Claude, demande par exemple « les fichiers montre de décembre ». Tu reçois directement les .workout calculés avec tes réglages, sans zip.</p>
    <p class="hint">Sur la montre : allure cible à ± 10 s/km (allure moyenne de la répétition), échauffement et retour au calme ouverts (tu passes à la suite quand tu es prêt), alerte BPM sur les footings et sorties longues.</p>`)}
-  ${sec('builder','Créer une séance pour la montre (onglet Montre)',`<ol>
+  ${sec('builder','Créer une séance pour la montre (Plus › Montre)',`<ol>
    <li>Onglet <b>Montre</b> → choisis un <b>modèle</b> (10 × 400 m, 30/30, seuil, fartlek, pyramide, tempo, côtes, footing) ou une <b>séance vierge</b>. Depuis le Programme, « ✎ Personnaliser » ouvre une séance prévue ici.</li>
    <li>Règle chaque bloc : répétitions (− / +), effort en durée ou en distance, cible (% VMA, allure, zone FC ou aucune), récupération (durée, distance, libre ou aucune). ⧉ duplique un bloc, ↑ le remonte, ✕ le supprime. « Pause entre séries » ajoute une récupération longue.</li>
    <li><b>Saisie rapide</b> : tape la séance comme sur un programme de club (ex. <code>2x(10x30/30) @100% R3'</code>, <code>6x1000 @90% r2'</code>, <code>échauffement 20' + 3x10' @85% r2' + rac 10'</code>), touche Aperçu, puis Créer. « Comment écrire ? » rappelle la notation.</li>
@@ -1390,6 +1396,8 @@ function guideView(){
 /* ---------- montre ---------- */
 async function sendToWatch(kind,key){
   const s=SESS[key]; if(!s||!s.wk) return;
+  if(kind==='garmin'){ const t=icuText(s); if(t){ icuSheet(s.title,t,key); return; } }
+  if(kind==='garminfit') kind='garmin';
   const dk=key.split('|')[0], d=parseD(dk);
   const clean=s.title.replace(/[·×'"\/:*?<>|]/g,' ').replace(/\s+/g,' ').trim();
   const who=MULTI()?activeAth().name:''; const base=(who?who+' ':'')+dk+' '+clean, name=pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+' '+s.title+(who?' ('+who+')':'');
@@ -1671,10 +1679,10 @@ function todayView(){
 
 /* ---- vue Plus ---- */
 function moreView(){
-  const it=[['export','Exporter','Programme en PDF ou dans le Calendrier (1 à 4 mois)'],['races','Courses','Compétitions, objectifs, périodes bloquées']];
+  const it=[['export','Exporter','Programme en PDF ou dans le Calendrier (1 à 4 mois)'],['watch','Montre','Créer une séance pour Apple Watch ou Garmin']];
+  if(ROOT.profiles.length>1) it.unshift(['group','Groupe','Aujourd\'hui au club, semaine et courses de chacun']);
   if(G.on&&G.admin) it.unshift(['admin','Console admin','Sportifs, liens personnels, sauvegarde du club']);
   if(!G.on||G.admin) it.push(['team','Sportifs','Profils, binômes, changer de sportif']);
-  if(ROOT.profiles.length>1) it.push(['group','Groupe','Calendrier du club : courses et objectifs de tous']);
   it.push(['prof','Profil','VMA, cardio, natation, disponibilités'+(G.on&&!G.admin?'':', sauvegarde')],['guide','Guide','Mode d\'emploi et fichiers montre']);
   if(!G.on&&GROUP_OK) it.push(['gjoin','Rejoindre le groupe','Coller mon lien personnel ou accès administrateur']);
   return `<h2 class="cond" style="margin:8px 0 12px;font-size:26px;text-transform:uppercase">Plus</h2><div class="morelist">${it.map(([k,l,d])=>`<button ${k==='export'?'data-pdfdlg="1"':'data-tab="'+k+'"'}>${ICON[k]||ICON.plan}<div><b>${l}</b><span>${d}</span></div></button>`).join('')}</div>`; }
@@ -1694,6 +1702,7 @@ function drawFiche(){ const s=SESS[ficheKey]; if(!s){ closeModal(); return; } co
   if(s.cat!=='race'&&s.cat!=='off') h+=`<details class="fd"><summary>Déplacer${s.moved?' (déplacée)':''}</summary><div class="in"><div class="dchips">${DSHORT.map((dd,j)=>{ const x=addDays(ws,j), t=ymd(x); return `<button class="dchip ${t===dk?'on':''}" data-mv="${j}" data-key="${ek}" data-ws="${ymd(ws)}">${dd} ${x.getDate()}</button>`; }).join('')}</div><p class="hint">Dans la même semaine. Re-choisis le jour d'origine pour annuler.</p></div></details>`;
   if(s.cat!=='off') h+=`<details class="fd"><summary>📅 Ajouter au calendrier</summary><div class="in"><div class="row" style="flex-wrap:wrap"><span class="small">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} à</span><input type="time" id="caltime" class="inp" style="width:120px" value="${calDefault(dk)}"><button class="btn sm" data-cal="${ek}">Ajouter</button></div>
     <p class="hint">${STANDALONE?'Le partage de l\'iPhone s\'ouvre : choisis <b>Mail</b> et envoie-toi le message. Dans l\'app Mail, touche la pièce jointe → « Ajouter au calendrier ».':'Le fichier .ics s\'ouvre dans le partage : choisis <b>Mail</b> et envoie-le-toi, puis touche la pièce jointe dans l\'app Mail → « Ajouter au calendrier ». (Si l\'appli te donne un .zip, ouvre-le dans Fichiers puis partage le .ics par Mail.)'} Durée : ${fmtMin(Math.max(15,s.dur||60))}.</p></div></details>`;
+  if(s.cat!=='race'&&s.cat!=='off') h+=editHTML(s);
   if(s.custom) h+=`<div style="margin-top:12px"><button class="btn ghost sm" data-uncust="${s.cid}">Retirer du programme</button></div>`;
   if(!done&&s.cat!=='race'&&s.cat!=='off') h+=`<p class="hint">Astuce : dans le Programme, balaye une séance vers la droite pour la marquer faite, vers la gauche pour la changer.</p>`;
   $('#sheet').innerHTML=h; }
@@ -1930,6 +1939,7 @@ function wbRefreshSum(){ const el=document.getElementById('wbsum'); if(el) el.in
 function wbOpen(w){ WB=w; WBSEL=new Set(); view='watch'; render(); setTimeout(()=>{ const e=document.querySelector('.wbed'); if(e) e.scrollIntoView({behavior:'smooth'}); },50); }
 async function wbExport(kind){
   const s=wbSession(EN,WB), who=MULTI()?activeAth().name:'';
+  if(kind==='garmin'){ const t=icuText(s); if(t){ icuSheet(WB.name,t); return; } }
   const clean=WB.name.replace(/×/g,'x').replace(/\//g,'-').replace(/·/g,'-').replace(/'/g,'min').replace(/"/g,'s').replace(/[:*?<>|\\]/g,' ').replace(/\s+/g,' ').trim(), base=(who?who+' ':'')+clean, name=WB.name+(who?' ('+who+')':'');
   const data=kind==='apple'?encAppleWorkout(name,s.wk):encGarminFit(name,s.wk), ext=kind==='apple'?'.workout':'.fit';
   const ok=STANDALONE? await offerFile(base+ext,data) : await offerFile(base+(kind==='apple'?' Apple':' Garmin')+'.zip',makeZip([{name:base+ext,data}]));
@@ -2040,10 +2050,14 @@ function groupView(){
   const EC={}; const eng=pid=>EC[pid]||(EC[pid]=engineFor(pid,true));
   let h=`<h2 class="cond" style="margin:8px 0 4px;font-size:26px;text-transform:uppercase">Groupe</h2>
   <p class="hint" style="margin:0 0 12px">Les courses à venir de tout le club, avec les objectifs de chacun.${G.on&&!G.admin?' Tu peux modifier uniquement les tiennes (Plus › Courses).':''}</p>`;
+  { const ti=wd(new Date()), ws=mondayOf(new Date()); let rows='';
+    for(const p of ROOT.profiles){ let L=[]; try{ L=eng(p.id).buildWeek(ws).days[ti].filter(s=>s.cat!=='off'); }catch(e){} if(!L.length) continue;
+      rows+=`<div class="grow"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="small mut">${L.map(s=>(p.data.done[s.key]?'✓ ':'')+esc(s.title)).join(' + ')}</div></div></div>`; }
+    h+=`<div class="sectitle" style="margin-top:4px">Aujourd'hui au club</div><div class="card" style="padding:6px 12px;margin-bottom:6px">${rows||'<p class="small mut">Personne n\'a de séance prévue aujourd\'hui.</p>'}</div><div class="sectitle">Courses à venir</div>`; }
   if(!groups.length) h+=`<div class="card empty">Aucune course à venir pour l'instant.</div>`;
   let lastM='';
   for(const g of groups){ const r0=g[0].r, d=parseD(r0.date), m=MONTHS[d.getMonth()]+' '+d.getFullYear();
-    if(m!==lastM){ h+=`<div class="sectitle" style="margin-top:14px">${m}</div>`; lastM=m; }
+    if(m!==lastM){ h+=`<div class="small mut" style="margin:12px 2px 6px;text-transform:uppercase;font-weight:600">${m}</div>`; lastM=m; }
     const e0=eng(g[0].p.id), bb=e0.bigs(r0);
     const desc=r0.type==='swimrun'?`${r0.km||0} km course + ${r0.swimKm||0} km nage`:`${r0.km||0} km${+r0.dplus?' · '+r0.dplus+' m D+':''}`;
     h+=`<div class="card" style="margin-bottom:8px"><div class="row" style="align-items:flex-start"><div style="text-align:center;min-width:44px"><b class="cond" style="font-size:24px;line-height:1">${d.getDate()}</b><div class="small mut">${DSHORT[wd(d)]}</div></div>
@@ -2053,10 +2067,14 @@ function groupView(){
       h+=`<div class="grow"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}${partner}</b> <span class="prio ${r.prio} mini">${r.prio}</span>
         <div class="small mut">${ev&&ev.goal?'Objectif '+fmtHMS(ev.goal):'Pas d\'objectif chrono'}${ev?' · prévision '+fmtHMS(ev.pDay):''}</div></div>${ev&&ev.ev?`<span class="evchip ${ev.ev.k}">${esc(ev.ev.l)}</span>`:''}</div>`; }
     h+='</div></div>'; }
-  h+=`<div class="sectitle" style="margin-top:18px">Membres (${ROOT.profiles.length})</div><div class="card" style="padding:6px 12px">`;
-  for(const p of ROOT.profiles){ let ph=''; try{ ph=eng(p.id).weekCtx(mondayOf(new Date())).phase; }catch(e){}
+  h+=`<div class="sectitle" style="margin-top:18px">Membres (${ROOT.profiles.length}) · cette semaine</div><div class="card" style="padding:6px 12px">`;
+  const ws=mondayOf(new Date()), ti=wd(new Date());
+  for(const p of ROOT.profiles){ let ph='', W=null; try{ ph=eng(p.id).weekCtx(ws).phase; W=eng(p.id).buildWeek(ws); }catch(e){}
     const R=p.data.races.filter(r=>r.date>=TODAY).sort((a,b)=>a.date<b.date?-1:1), A=R.find(r=>r.prio==='A')||R[0];
-    h+=`<div class="grow"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b>${p.id===ROOT.active?' <span class="chip">Moi</span>':''}<div class="small mut">${esc(ph)}${A?' · 🏁 '+esc(A.name)+' ('+parseD(A.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+')':''}</div></div></div>`; }
+    let nd=0, nt=0; const rows=[]; if(W) for(let i=0;i<7;i++){ const L=W.days[i].filter(s=>s.cat!=='off'); if(!L.length) continue;
+      rows.push(`<div class="wkl${i===ti?' tdy':''}"><span>${DSHORT[i]}</span><div>${L.map(s=>{ const d=!!p.data.done[s.key]; if(s.cat!=='race'){ nt++; if(d) nd++; } return `<div>${d?'<b class="ok">✓</b> ':''}${esc(s.title)}${s.real?' <span class="mut">('+esc(realDesc(s.real))+')</span>':''}</div>`; }).join('')}</div></div>`); }
+    h+=`<details class="gmem"><summary class="grow"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b>${p.id===ROOT.active?' <span class="chip">Moi</span>':''}<div class="small mut">${esc(ph)}${A?' · 🏁 '+esc(A.name)+' ('+parseD(A.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+')':''}</div></div><span class="chip">${nd}/${nt}</span></summary>
+      <div class="wk">${rows.join('')||'<p class="small mut">Pas de séance cette semaine.</p>'}</div></details>`; }
   return h+'</div><p class="hint">Séances club : quand plusieurs sportifs ont une séance de qualité le même jour, l\'appli leur donne la même séance (chacun à ses allures). Désactivable dans Profil.</p>';
 }
 
@@ -2103,7 +2121,7 @@ function adminView(){
   <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-gact="export">Télécharger la sauvegarde du club</button><label class="btn ghost sm" style="display:inline-block">Importer / restaurer<input type="file" id="gimpfile" accept=".json,.html,application/json,text/html" hidden></label>${lsHad()?'<button class="btn ghost sm" data-gact="implocal">Importer les profils de cet appareil</button>':''}</div>
   <div id="gimpbox"></div>
   <p class="hint">Le fichier contient tous les sportifs, leurs programmes et leurs liens. Une restauration remplace les sportifs de même prénom et ajoute les autres. Rappel ici chaque mois.</p></div>
-  <div class="card sec"><h3>Règles du club</h3><p class="small" style="margin:0">Chacun voit les courses et objectifs de tous (Plus › Groupe) mais ne modifie que son profil et ses courses. Toi, tu peux tout modifier. L'historique de plus de 2 mois s'efface automatiquement. Les FC, ressentis et séances faites ne sont visibles que par le sportif et toi.</p></div>
+  <div class="card sec"><h3>Règles du club</h3><p class="small" style="margin:0">Chacun voit les courses et objectifs de tous (Plus › Groupe) mais ne modifie que son profil et ses courses. Toi, tu peux tout modifier. L'historique de plus de 2 mois s'efface automatiquement. Les membres voient aussi la semaine de chacun et les séances faites ; les FC, ressentis et commentaires restent visibles seulement par le sportif et toi.</p></div>
   <div class="row" style="margin-top:6px"><span class="small mut" style="flex:1">Connecté : ${esc(G.email||'administrateur')}</span><button class="btn ghost sm" data-gact="logout">Se déconnecter</button></div>`;
   return h;
 }
@@ -2164,10 +2182,14 @@ function gDoImport(){ if(!gImport) return; const L=gImport.list; gImport=null; c
   closeModal(); GATE=false; gAssemble(); refresh(); lastCore=''; save(); view='admin'; render(); toast('Import terminé'); }
 
 /* ---- données ---- */
-const ENGK=['vma','age','sex','level','avail','lrDay','maxRun','weekdayMax','vmaMode','mixWeek','swimAllYear','swim100','css','noClub'];
+const ENGK=['vma','age','sex','level','avail','lrDay','maxRun','weekdayMax','vmaMode','mixWeek','swimAllYear','swimMin','swim100','css','noClub','prefs'];
 function pubOf(p){ const eng={}; ENGK.forEach(k=>{ if(p.data.profile[k]!==undefined) eng[k]=p.data.profile[k]; });
+  const D=p.data, real={}; Object.entries(D.real||{}).forEach(([k,x])=>{ real[k]={t:x.t,dur:x.dur,km:x.km}; });
+  eng.act=JSON.stringify({done:D.done||{},moves:D.moves||{},swaps:D.swaps||{},customs:D.customs||[],edits:D.edits||{},real});
   return JSON.parse(JSON.stringify({name:p.name,color:p.color,races:p.data.races||[],eng,blocks:(p.data.blocks||[]).map(b=>({kind:b.kind,from:b.from,to:b.to,id:b.id||null}))})); }
-function pubProfile(id,pb){ return {id,ro:true,name:pb.name||'Sportif',color:pb.color||'#888',data:mergeAth({profile:pb.eng||{},races:pb.races||[],blocks:pb.blocks||[]})}; }
+function pubProfile(id,pb){ let act={}; try{ act=JSON.parse((pb.eng||{}).act||'{}'); }catch(e){}
+  const eng=Object.assign({},pb.eng||{}); delete eng.act;
+  return {id,ro:true,name:pb.name||'Sportif',color:pb.color||'#888',data:mergeAth(Object.assign({},act,{profile:eng,races:pb.races||[],blocks:pb.blocks||[]}))}; }
 function gMarkNew(p){ if(!p.key) p.key=rid(28); G.full[p.id]=p; delete G.deleted[p.id]; }
 function gMarkDeleted(id){ const p=G.full[id]; if(p) G.deleted[id]=p.key; delete G.full[id]; }
 function gAssemble(){
@@ -2192,7 +2214,7 @@ function gApplyFull(id,key,d){ if(G.deleted[id]) return false; const js=typeof d
 
 let gPushT=null, gInflight=0;
 function gPush(){ if(!G.db) return; clearTimeout(gPushT); gPushT=setTimeout(gPushNow,100); }
-function gPushNow(){ const F=G.F, db=G.db; if(!F||!db||GATE) return; const now=new Date().toISOString(); const ops=[];
+function gPushNow(){ const F=G.F, db=G.db; if(!F||!db||GATE) return; if(!G.admin&&!G.claimed){ clearTimeout(gPushT); gPushT=setTimeout(gPushNow,1500); return; } const now=new Date().toISOString(); const ops=[];
   for(const p of editables()){
     if(!p.key){ if(!G.admin) continue; gMarkNew(p); }
     if(G.admin) G.full[p.id]=p;
@@ -2200,13 +2222,14 @@ function gPushNow(){ const F=G.F, db=G.db; if(!F||!db||GATE) return; const now=n
     if(typeof G.rekey[p.id]==='string'){ const old=G.rekey[p.id], id=p.id; G.rekey[id]={old};
       ops.push(F.setDoc(F.doc(db,'ath',p.key),{pub:p.id,name:p.name,color:p.color,data:js,updatedAt:now}).then(()=>F.deleteDoc(F.doc(db,'ath',old))).then(()=>{ delete G.rekey[id]; })); G.last[p.id]=js; G.lastMeta[p.id]=meta; G.meta[p.id]=now; }
     else if(G.last[p.id]!==js||(G.admin&&G.lastMeta[p.id]!==meta)){ G.last[p.id]=js; G.lastMeta[p.id]=meta; G.meta[p.id]=now;
-      ops.push(G.admin?F.setDoc(F.doc(db,'ath',p.key),{pub:p.id,name:p.name,color:p.color,data:js,updatedAt:now}):F.updateDoc(F.doc(db,'ath',p.key),{data:js,updatedAt:now})); }
-    if(G.lastPub[p.id]!==pb){ G.lastPub[p.id]=pb; const o=JSON.parse(pb); o.updatedAt=now;
-      ops.push(G.admin?F.setDoc(F.doc(db,'pub',p.id),o):F.updateDoc(F.doc(db,'pub',p.id),{races:o.races,eng:o.eng,blocks:o.blocks,updatedAt:now})); }
+      const id=p.id; ops.push((G.admin?F.setDoc(F.doc(db,'ath',p.key),{pub:p.id,name:p.name,color:p.color,data:js,updatedAt:now}):F.updateDoc(F.doc(db,'ath',p.key),{data:js,updatedAt:now})).catch(err=>{ if(G.last[id]===js) G.last[id]=null; throw err; })); }
+    if(G.lastPub[p.id]!==pb){ G.lastPub[p.id]=pb; const o=JSON.parse(pb); o.updatedAt=now; const id=p.id;
+      ops.push((G.admin?F.setDoc(F.doc(db,'pub',p.id),o):F.updateDoc(F.doc(db,'pub',p.id),{races:o.races,eng:o.eng,blocks:o.blocks,updatedAt:now})).catch(err=>{ if(G.lastPub[id]===pb) G.lastPub[id]=null; throw err; })); }
     if(G.admin) G.known[p.id]=G.known[p.id]||p.key; }
   if(G.admin) for(const [id,key] of Object.entries(G.deleted)){ if(key) ops.push(F.deleteDoc(F.doc(db,'ath',key)),F.deleteDoc(F.doc(db,'pub',id))); delete G.known[id]; G.deleted[id]=null; }
   if(!ops.length) return; gCache(); gInflight++; G.state='pending'; setSync();
-  Promise.all(ops).then(()=>{ gInflight--; if(!gInflight){ G.state='ok'; setSync(); } }).catch(err=>{ gInflight--; console.error(err); G.state='off'; setSync(); if(err&&err.code==='permission-denied') toast('Enregistrement refusé par le serveur'); }); }
+  Promise.all(ops).then(()=>{ gInflight--; if(!gInflight){ G.state='ok'; setSync(); } }).catch(err=>{ gInflight--; console.error(err); G.state='off'; setSync();
+    if(err&&err.code==='permission-denied') toast('Enregistrement refusé par le serveur'); clearTimeout(gPushT); gPushT=setTimeout(gPushNow,8000); }); }
 
 /* ---- connexion Firebase ---- */
 async function fbLoad(){ if(window.__FBMOCK) return window.__FBMOCK; const B='https://www.gstatic.com/firebasejs/'+FBV+'/';
@@ -2234,8 +2257,9 @@ function gListenAdmin(){ const F=G.F, db=G.db; G.state='wait'; setSync();
     err=>{ console.error(err); G.state='off'; if(err&&err.code==='permission-denied'){ GATE='login'; } render(); }); }
 function gListenUser(){ const F=G.F, db=G.db; G.state='wait'; setSync();
   const uid=G.auth.currentUser.uid; let pubUnsub=null;
-  const listenPubs=()=>{ if(pubUnsub) pubUnsub(); pubUnsub=F.onSnapshot(F.collection(db,'pub'),qs=>{ const P={}; qs.forEach(d=>P[d.id]=d.data()); G.pubs=P; gAssemble(); gReady(); gCache(); gRender(); },
-    err=>{ if(!G.claimed) claimP.then(listenPubs,()=>{}); }); };
+  let tries=0;
+  const listenPubs=()=>{ if(pubUnsub) pubUnsub(); pubUnsub=F.onSnapshot(F.collection(db,'pub'),qs=>{ tries=0; const P={}; qs.forEach(d=>P[d.id]=d.data()); G.pubs=P; gAssemble(); gReady(); gCache(); gRender(); },
+    err=>{ console.warn('pub',err&&err.code); pubUnsub=null; tries++; if(tries>12) return; claimP.then(()=>setTimeout(listenPubs,Math.min(30000,800*tries)),()=>{}); }); };
   const claimP=F.setDoc(F.doc(db,'claims',uid),{key:G.key,at:new Date().toISOString()}).then(()=>{ G.claimed=true; });
   claimP.catch(err=>{ console.error(err); if(err&&err.code==='permission-denied'){ GATE='revoked'; lsSet('coach-key',null); render(); } });
   F.onSnapshot(F.doc(db,'ath',G.key),snap=>{
@@ -2261,6 +2285,64 @@ async function gStart(){
 
 /* ---- hors ligne : service worker (version hébergée) ---- */
 if(STANDALONE&&location.protocol==='https:'&&'serviceWorker' in navigator&&!window.__FBMOCK){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
+
+/* ===================== natation, séances modifiées / réalisées ===================== */
+function swimMinOf(P){ return P.swimMin!=null?+P.swimMin:(P.swimAllYear?1:0); }
+const RTYPES={run:'Course',swim:'Natation',renfo:'Renfo',bike:'Vélo',other:'Autre',rest:'Repos'};
+function realDesc(x){ return (RTYPES[x.t]||'Séance')+(+x.dur?' '+fmtMin(+x.dur):'')+(+x.km?' · '+String(x.km).replace('.',',')+' km':''); }
+function applyEdits(r,data){ const E=data.edits||{}, RL=data.real||{}; if(!Object.keys(E).length&&!Object.keys(RL).length) return r;
+  for(const i in r.days) r.days[i]=r.days[i].map(s=>{ const e=E[s.key], x=RL[s.key]; if(!e&&!x) return s; let n=s;
+    if(e){ const L=String(e.text||'').split('\n').map(z=>z.trim()).filter(Boolean);
+      n=Object.assign({},s,{title:e.title||s.title,dur:+e.dur||s.dur,sum:'Séance modifiée'+(+e.dur?' · '+fmtMin(+e.dur):''),blocks:L.length?[{h:'Séance modifiée',l:L}]:s.blocks,wk:null,alts:null,edited:true}); }
+    if(x){ n=Object.assign({},n,{real:x,dur:+x.dur||n.dur,sum:'✓ Réalisé : '+realDesc(x)}); n.blocks=[{h:'Réalisé',l:[realDesc(x)+(x.note?' · '+x.note:'')]}].concat(n.blocks); }
+    return n; });
+  return r; }
+let RT='run';
+function editHTML(s){ const k=esc(s.key), e=(S.edits||{})[s.key], x=(S.real||{})[s.key];
+  const txt=e?e.text:s.blocks.map(b=>'— '+b.h+'\n'+b.l.join('\n')).join('\n').replace(/‹[^›]*›/g,'').replace(/ +\n/g,'\n');
+  RT=x?x.t:(s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':'run');
+  return `<details class="fd"${e||x?' open':''}><summary>✎ Modifier / saisir ce que j'ai fait${e?' (modifiée)':''}${x?' (réalisé saisi)':''}</summary><div class="in">
+   <h4>Ce que j'ai vraiment fait</h4><div class="pills">${Object.entries(RTYPES).map(([t,l])=>`<button class="${RT===t?'on':''}" data-rt="${t}">${l}</button>`).join('')}</div>
+   <div class="grid2"><div><label class="f">Durée (min)</label><input class="inp" id="re-dur" inputmode="numeric" value="${esc(x?x.dur||'':s.dur||'')}"></div><div><label class="f">Distance (km)</label><input class="inp" id="re-km" inputmode="decimal" value="${esc(x?x.km||'':'')}"></div></div>
+   <label class="f">Commentaire</label><input class="inp" id="re-note" value="${esc(x?x.note||'':'')}" placeholder="Ex. raccourci, genou sensible…">
+   <div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-rsave="${k}">Enregistrer le réalisé</button>${x?`<button class="btn ghost sm" data-rdel="${k}">Effacer</button>`:''}</div>
+   <p class="hint">La séance est marquée faite et le réalisé remplace la durée prévue dans les compteurs.</p>
+   <h4 style="margin-top:14px">Modifier la séance prévue</h4>
+   <label class="f">Titre</label><input class="inp" id="se-title" value="${esc(e?e.title:s.title)}">
+   <label class="f">Durée (min)</label><input class="inp" id="se-dur" inputmode="numeric" value="${esc(e?e.dur:s.dur||'')}">
+   <label class="f">Contenu (une consigne par ligne)</label><textarea class="inp" id="se-text" style="height:170px">${esc(txt)}</textarea>
+   <div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-esave="${k}">Enregistrer</button>${e?`<button class="btn ghost sm" data-edel="${k}">Revenir à la séance d'origine</button>`:''}</div>
+   <p class="hint">Une séance modifiée n'a plus de fichier montre ni de bouton « Changer ».</p></div></details>`; }
+document.addEventListener('click',e=>{ let t; const v=id=>(document.getElementById(id)||{}).value||'';
+  if(t=e.target.closest('[data-rt]')){ RT=t.dataset.rt; t.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===t)); return; }
+  if(t=e.target.closest('[data-rsave]')){ const k=t.dataset.rsave; S.real=S.real||{}; S.real[k]={t:RT,dur:+v('re-dur')||null,km:+v('re-km').replace(',','.')||null,note:v('re-note').trim()}; S.done[k]=true; save(); render(); toast('Réalisé enregistré'); return; }
+  if(t=e.target.closest('[data-rdel]')){ delete (S.real||{})[t.dataset.rdel]; save(); render(); toast('Réalisé effacé'); return; }
+  if(t=e.target.closest('[data-esave]')){ const k=t.dataset.esave; S.edits=S.edits||{}; S.edits[k]={title:v('se-title').trim(),dur:+v('se-dur')||null,text:v('se-text')}; save(); render(); toast('Séance modifiée'); return; }
+  if(t=e.target.closest('[data-edel]')){ delete (S.edits||{})[t.dataset.edel]; save(); render(); toast('Séance d\'origine rétablie'); return; }
+});
+
+/* ===================== Garmin via intervals.icu ===================== */
+function icuText(s){ const wk=s.wk; if(!wk) return null; const fp=x=>{ x=Math.round(x/5)*5; return Math.floor(x/60)+':'+pad2(x%60); };
+  const rng=sec=>fp(sec+10)+'-'+fp(Math.max(120,sec-10))+'/km Pace', ef=rng(3600/EN.kmh(70)), slow=fp(3600/EN.kmh(55))+'-'+fp(3600/EN.kmh(65))+'/km Pace';
+  const dur=g=>{ if(!g||g[0]==='open') return null; if(g[0]==='dist') return (Math.round(g[1])/1000)+'km'; const t=Math.round(g[1]), m=Math.floor(t/60), sc=t%60; return m&&sc?m+'m'+sc+'s':m?m+'m':sc+'s'; };
+  const step=(st,def,tgt)=>{ const d=dur(st&&st.g)||def; const t=st&&st.pace?rng(st.pace):tgt; return '- '+d+' '+t; };
+  const L=[];
+  const wMin=((s.blocks||[]).find(b=>/Échauffement/.test(b.h))||{l:['']}).l[0].match(/^(\d+)'/);
+  if(wk.warm){ L.push('Warmup',step(wk.warmStep,(wMin?wMin[1]:20)+'m',ef),''); }
+  for(const b of wk.blocks||[]){ const st=b.steps.map(x=>step(x,'5m',x.p==='rec'?slow:ef)); if(b.iter>1) L.push(b.iter+'x',...st,''); else L.push(...st,''); }
+  const cMin=((s.blocks||[]).find(b=>/Retour au calme/.test(b.h))||{l:['']}).l[0].match(/^(\d+)'/);
+  if(wk.cool!==false&&wk.warm) L.push('Cooldown',step(wk.coolStep,(cMin?cMin[1]:10)+'m',slow));
+  else if(wk.coolStep) L.push('Cooldown',step(wk.coolStep,'10m',slow));
+  return L.join('\n').trim(); }
+function icuSheet(title,txt,fitKey){ modalKind='txt';
+  $('#sheet').innerHTML=`<h3>Garmin via intervals.icu</h3><p class="small mut">${esc(title)}</p><textarea class="inp" id="icutxt" style="height:200px;font-family:ui-monospace,monospace;font-size:13px" readonly>${esc(txt)}</textarea>
+  <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn" data-icucopy="1">Copier et ouvrir intervals.icu</button><button class="btn ghost" data-close="1">Fermer</button></div>
+  <ol class="small" style="padding-left:18px;margin:12px 0 0"><li>Dans intervals.icu, touche le jour de la séance dans le calendrier › <b>Ajouter une séance (workout)</b>.</li><li>Donne-lui un nom, choisis <b>Run</b>, puis colle le texte dans la zone de description.</li><li>Enregistre : intervals.icu l'envoie dans ton calendrier Garmin Connect, puis sur ta montre à la prochaine synchro.</li></ol>
+  <p class="hint">Garmin Connect n'accepte pas l'import direct d'un fichier de séance (seulement des activités et des parcours) : c'est pour cela que le fichier .fit était reconnu sans créer la séance.${fitKey?` Le fichier .fit reste utile pour intervals.icu (import de fichier) ou un câble USB : <button class="linkbtn" data-wx="garminfit" data-key="${esc(fitKey)}">télécharger le .fit</button>.`:''}</p>`;
+  $('#modal').classList.add('show'); }
+document.addEventListener('click',e=>{ if(!e.target.closest('[data-icucopy]')) return; const t=($('#icutxt')||{}).value||'';
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('Texte copié : colle-le dans intervals.icu'),()=>toast('Sélectionne le texte et copie-le'));
+  window.open('https://intervals.icu/calendar','_blank'); });
 
 /* ---------- démarrage ---------- */
 (async()=>{ if(GROUP_OK&&gWanted()){ gStart(); return; }

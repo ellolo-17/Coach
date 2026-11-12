@@ -1044,7 +1044,7 @@ function drawForm(){
   const r=editing, isNew=!myRaces().some(x=>x.id===r.id);
   const pr=['A','B','C'].map(p=>`<button class="${r.prio===p?'on':''}" data-prio="${p}">${p}</button>`).join('');
   const ty=Object.entries(TYPES).map(([k,l])=>`<button class="${r.type===k?'on':''}" data-type="${k}">${l}</button>`).join('');
-  $('#sheet').innerHTML=`<h3>${isNew?'Nouvelle course':'Modifier la course'}</h3>
+  $('#sheet').innerHTML=`<h3>${isNew?'Nouvelle course':'Modifier la course'}</h3>${isNew?clubRacesHTML():''}
   <label class="f">Nom</label><input class="inp" data-k="name" value="${esc(r.name)}" placeholder="Ex. Semi de Paris">
   <div class="grid2"><div><label class="f">Date</label><input class="inp" type="date" data-k="date" value="${esc(r.date)}"></div>
   <div><label class="f">Priorité</label><div class="seg">${pr}</div></div></div>
@@ -2032,6 +2032,7 @@ function purgeOld(o){ if(!o||typeof o!=='object') return o; const lim=ymd(addDay
   for(const f of ['done','feel','moves','swaps']) if(o[f]&&typeof o[f]==='object') for(const k of Object.keys(o[f])) if(old(k)) delete o[f][k];
   if(Array.isArray(o.customs)) o.customs=o.customs.filter(c=>!c.date||c.date>=lim);
   if(Array.isArray(o.blocks)) o.blocks=o.blocks.filter(b=>!b.to||b.to>=lim);
+  const lim6=ymd(addDays(new Date(),-183)); if(Array.isArray(o.races)) o.races=o.races.filter(r=>!r.date||r.date>=lim6);
   return o; }
 
 /* ---- séances club communes ---- */
@@ -2063,7 +2064,7 @@ function partnersOf(pid){ const me=ath(pid); if(!me) return new Set(); const S2=
   for(const p of ROOT.profiles){ if(p.id===pid) continue;
     if(p.data.races.some(r=>r.date>=TODAY&&(me.data.races.some(x=>sameRace(x,r))||(r.duo&&r.partner===pid)))||me.data.races.some(r=>r.duo&&r.partner===p.id&&r.date>=TODAY)) S2.add(p.id); }
   return S2; }
-function groupView(){
+function groupView(){ CLUBR=[];
   const EC={}; const eng=pid=>EC[pid]||(EC[pid]=engineFor(pid,true));
   const ws=mondayOf(new Date()), ti=wd(new Date()), me=ROOT.active;
   const todayOf=p=>{ try{ return eng(p.id).buildWeek(ws).days[ti].filter(s=>s.cat!=='off'); }catch(e){ return []; } };
@@ -2098,8 +2099,9 @@ function groupView(){
   for(const gg of groups){ const r0=gg[0].r, d=parseD(r0.date), m=MONTHS[d.getMonth()]+' '+d.getFullYear();
     if(m!==lastM){ h+=`<div class="small mut" style="margin:12px 2px 6px;text-transform:uppercase;font-weight:600">${m}</div>`; lastM=m; }
     const desc=r0.type==='swimrun'?`${r0.km||0} km + ${r0.swimKm||0} km nage`:`${r0.km||0} km${+r0.dplus?' · '+r0.dplus+' m D+':''}`;
+    const st=raceState(gg);
     h+=`<div class="card" style="margin-bottom:8px;padding:10px 12px"><div class="row" style="align-items:flex-start"><div style="text-align:center;min-width:40px"><b class="cond" style="font-size:22px;line-height:1">${d.getDate()}</b><div class="small mut">${DSHORT[wd(d)]}</div></div>
-      <div style="flex:1;min-width:0"><b>${esc(r0.name)}</b><div class="small mut">${TYPES[r0.type]||''} · ${desc}${gg.length>1?' · <b>'+gg.length+' du club</b>':''}</div></div></div>`;
+      <div style="flex:1;min-width:0"><b>${esc(r0.name)}</b><div class="small mut">${TYPES[r0.type]||''} · ${desc}${gg.length>1?' · <b>'+gg.length+' du club</b>':''}</div></div>${raceBtn(st,'g')}</div>`;
     for(const {r,p} of gg){ let ev=null; try{ ev=eng(p.id).evaluate(Object.assign({},r,{_owner:p.id})); }catch(e){}
       const partner=r.duo&&ath(r.partner)?' + '+esc(ath(r.partner).name):'';
       h+=`<div class="gline">${dot(p)}<span class="nm">${esc(p.name)}${partner} <span class="prio ${r.prio} mini">${r.prio}</span></span><span class="tx">${ev&&ev.goal?'Objectif '+fmtHMS(ev.goal):'Prévision '+(ev?fmtHMS(ev.pDay):'—')}</span>${ev&&ev.ev?`<span class="evchip ${ev.ev.k}">${esc(ev.ev.l)}</span>`:''}</div>`; }
@@ -2450,7 +2452,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261112174443';
+const BUILD='20261112201407';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2474,6 +2476,34 @@ document.addEventListener('click',e=>{ const t=e.target.closest('[data-gview]');
   const id=t.dataset.gview||null; if(id&&!G.full[id]) return; if(id&&!G.preview) G.pvPrev=ROOT.active;
   G.preview=id; gAssemble(); if(!id&&G.pvPrev&&ath(G.pvPrev)) ROOT.active=G.pvPrev; refresh(); open.clear(); closeModal(); view=id?'today':'admin'; render(); window.scrollTo(0,0);
   if(id) toast('Vue de '+ath(id).name); },true);
+
+/* ===================== reprendre une course d'un autre membre ===================== */
+let CLUBR=[];
+const RSKIP=new Set(['id','_owner','prio','goal','duo','partner','result']);
+function raceState(gg){ const me=ROOT.active, mine=racesFor(me);
+  if(mine.some(x=>gg.some(it=>sameRace(x,it.r)))){ const it=gg.find(it=>it.r.duo&&it.r.partner===me); return {k:'have',with:it?it.p.name:null}; }
+  const solo=gg.find(it=>it.r.duo&&!it.r.partner&&it.p.id!==me);
+  return {k:'copy',src:gg.find(it=>it.p.id!==me)||gg[0],join:solo&&ADM()?solo:null}; }
+function raceBtn(st,ctx){ const i=CLUBR.push(st)-1;
+  if(st.k==='have') return `<span class="chip" style="flex:none">${st.with?'Binôme de '+esc(st.with):'Déjà dans mes courses'}</span>`;
+  return `<div style="display:flex;flex-direction:column;gap:4px;flex:none"><button class="btn sm${ctx==='f'?' ghost':''}" data-rcopy="${i}">${ctx==='f'?'Reprendre':'+ Moi aussi'}</button>${st.join?`<button class="btn ghost sm" data-rjoin="${i}">Rejoindre en binôme</button>`:''}</div>`; }
+function clubRacesHTML(){ if(!ROOT||ROOT.profiles.length<2) return ''; CLUBR=[];
+  const items=[]; for(const p of ROOT.profiles) for(const r of p.data.races) if(r.date&&r.date>=TODAY) items.push({r,p});
+  items.sort((a,b)=>a.r.date<b.r.date?-1:a.r.date>b.r.date?1:0);
+  const groups=[]; for(const it of items){ const gg=groups.find(x=>sameRace(x[0].r,it.r)); if(gg) gg.push(it); else groups.push([it]); }
+  const others=groups.filter(gg=>gg.some(it=>it.p.id!==ROOT.active)); if(!others.length) return '';
+  return `<details class="fd" open style="margin:6px 0 10px"><summary>Courses du club (${others.length})</summary><div class="in" style="max-height:260px;overflow:auto">`+
+    others.map(gg=>{ const r=gg[0].r, st=raceState(gg), names=[...new Set(gg.map(it=>it.p.name))];
+      return `<div class="gline"><div style="flex:1;min-width:0"><b>${esc(r.name)}</b><div class="small mut">${parseD(r.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'})} · ${TYPES[r.type]||''} · ${r.km||0} km · ${esc(names.join(', '))}</div></div>${raceBtn(st,'f')}</div>`; }).join('')+
+    `</div></details>`; }
+function raceCopyFields(r){ const o={}; for(const k of Object.keys(r)) if(!RSKIP.has(k)) o[k]=r[k]; return o; }
+document.addEventListener('click',e=>{ let t;
+  if(t=e.target.closest('[data-rcopy]')){ const st=CLUBR[+t.dataset.rcopy]; if(!st||!st.src) return; e.stopPropagation(); const f=raceCopyFields(st.src.r);
+    if(modalKind==='race'&&editing){ Object.assign(editing,f); drawForm(); toast('Course reprise : choisis ta priorité et ton objectif'); return; }
+    raceForm(null); Object.assign(editing,f); drawForm(); toast('Choisis ta priorité et ton objectif, puis enregistre'); return; }
+  if(t=e.target.closest('[data-rjoin]')){ const st=CLUBR[+t.dataset.rjoin]; if(!st||!st.join) return; e.stopPropagation(); const r=st.join.r;
+    if(!canEdit(st.join.p.id)) return; r.partner=ROOT.active; save(); closeModal(); render(); toast('Ajouté comme binôme de '+st.join.p.name); return; }
+},true);
 
 /* ---------- démarrage ---------- */
 (async()=>{ if(GROUP_OK&&gWanted()){ gStart(); return; }

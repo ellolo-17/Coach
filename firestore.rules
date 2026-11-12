@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed() { return request.auth != null; }
+    function isAdmin() { return signed() && request.auth.uid == 'TTHZB3qgiyfayPgMOmTJHGO1a0F2'; }
+    function claimPath() { return /databases/$(database)/documents/claims/$(request.auth.uid); }
+    function hasClaim() { return signed() && exists(claimPath()); }
+    function myKey() { return get(claimPath()).data.key; }
+    function member() { return isAdmin() || (hasClaim() && exists(/databases/$(database)/documents/ath/$(myKey()))); }
+
+    // lien personnel : l'appareil déclare la clé de son lien
+    match /claims/{uid} {
+      allow read, delete: if signed() && request.auth.uid == uid;
+      allow create, update: if signed() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['key', 'at'])
+        && request.resource.data.key is string && request.resource.data.key.size() >= 20
+        && exists(/databases/$(database)/documents/ath/$(request.resource.data.key));
+    }
+    // programme complet d'un sportif (identifiant = clé secrète du lien)
+    match /ath/{key} {
+      allow get: if isAdmin() || (signed() && key.size() >= 20);
+      allow list, create, delete: if isAdmin();
+      allow update: if isAdmin() || (signed() && key.size() >= 20
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['data', 'updatedAt']));
+    }
+    // fiche publique : courses, objectifs, disponibilités (visible par tout le club)
+    match /pub/{pid} {
+      allow read: if member();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (hasClaim()
+        && get(/databases/$(database)/documents/ath/$(myKey())).data.pub == pid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['races', 'eng', 'blocks', 'updatedAt']));
+    }
+    match /club/{doc} {
+      allow read: if member();
+      allow write: if isAdmin();
+    }
+  }
+}

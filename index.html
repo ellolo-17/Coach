@@ -202,6 +202,19 @@ body.gated nav.tabs,body.gated #who{display:none}
 .gate{max-width:420px;margin:8vh auto 0;padding:0 4px}.gate h2{font-size:40px;text-transform:uppercase;margin:0 0 14px;line-height:1}.gate h2 span{color:var(--run)}.gate p{line-height:1.45}
 .gmem summary{list-style:none;cursor:pointer}.gmem summary::-webkit-details-marker{display:none}.gmem .wk{padding:0 0 10px 40px}.gmem[open] summary{border-bottom:0}
 .wkl{display:flex;gap:10px;font-size:13px;padding:3px 0}.wkl>span{width:30px;color:var(--mut);flex:none}.wkl.tdy>span{color:var(--run);font-weight:700}.wkl b.ok{color:var(--ev-att)}
+.acts.a4{grid-template-columns:repeat(4,1fr);gap:6px}.acts.a4 button{font-size:12.5px;padding:10px 2px}.acts button.on2{border-color:var(--ok);color:var(--ok)}
+.clubchip{display:inline-flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;font-weight:600;color:var(--ink);background:var(--chip);border-radius:999px;padding:2px 4px 2px 9px;max-width:100%}
+.cdots{display:inline-flex}.cdots i{width:18px;height:18px;border-radius:50%;margin-left:-5px;border:2px solid var(--chip);color:#fff;font-style:normal;font-size:9.5px;font-weight:700;display:grid;place-items:center}.cdots i:first-child{margin-left:0}.cdots i.more{background:var(--mut);font-size:8.5px}
+.srow .clubchip{display:flex;width:max-content}
+.ptabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;scrollbar-width:none}.ptabs::-webkit-scrollbar{display:none}.ptabs button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 13px;font-size:13.5px;font-weight:600}.ptabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+@media(max-width:600px){.sync span{display:none}.sync{padding:8px}.sync i{width:10px;height:10px}}
+.sync{cursor:pointer}
+@media(min-width:900px){.admrow{display:flex;align-items:center;justify-content:space-between;gap:12px}.admrow>.row:last-child{margin-top:0!important;flex-wrap:nowrap!important}}
+@media(min-width:1100px){body.side .modal.full{background:none;pointer-events:none;justify-content:flex-end;align-items:stretch}
+ body.side .modal.full .sheet{pointer-events:auto;max-width:460px;width:460px;height:100vh;max-height:100vh;border-radius:0;border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.12)}
+ body.side .wrap,body.side header.top,body.side nav.tabs{margin-left:max(16px,calc((100vw - 460px - 860px)/2));margin-right:auto}}
+.gfilt{display:flex;gap:6px;margin:0 0 10px;overflow-x:auto}.gfilt button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600}.gfilt button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.gline{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}.gline:last-child{border-bottom:0}.gline .adot{width:26px;height:26px;font-size:14px}.gline .nm{font-weight:600;min-width:64px}.gline .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut)}
 </style>
 </head>
 <body>
@@ -665,7 +678,7 @@ function makeEngine(S,H){ H=H||{};
       const flex=(role==='Q1'||role==='Q2')&&s.qk&&!isTest&&!raceDays.length&&(ph==='Foncier'||ph==='Développement');
       if(s.qk) qRaw[d]={k:s.qk,m:s.qm,flex};
       if(flex&&H.club){ const T=(H.club(ws)||{})[d]; if(T&&T.k){ const n=quality(T.k,{...c,mode:T.m},T.i); if(n){ s=n; s.club=T.with||[];
-        const w=s.club.length?s.club.join(', '):'le groupe'; s.sum=s.sum+' · Séance club avec '+w;
+        const w=s.club.length?s.club.join(', '):'le groupe';
         s.blocks.unshift({h:'Séance club',l:['Même séance que '+w+' : chacun à ses allures et à son nombre de répétitions']}); } } }
       if(role==='PRE'||role==='E-'||role==='R') s.noAlt=true; s.alts=altsFor(s,c,iw,CAP); out[d].push(s); c=C0;
     }
@@ -943,18 +956,19 @@ async function offerFile(name,data){
 
 /* ---------- navigation ---------- */
 function renderTabs(){
-  const sub=['watch','team','prof','guide','admin','group','gjoin'].includes(view)?'more':view;
-  $('#tabs').innerHTML=[['today',"Aujourd'hui"],['plan','Programme'],['races','Courses'],['more','Plus']].map(([k,l])=>
+  const sub=['watch','team','prof','guide','admin','gjoin'].includes(view)?'more':view;
+  $('#tabs').innerHTML=[['today',"Aujourd'hui"],['plan','Programme'],['races','Courses'],['group','Groupe'],['more','Plus']].filter(([k])=>k!=='group'||G.on||ROOT.profiles.length>1).map(([k,l])=>
     `<button class="${sub===k?'on':''}" data-tab="${k}" ${sub===k?'aria-current="page"':''}>${ICON[k]}<span>${l}</span></button>`).join('');
 }
 function render(){
   if(GATE){ document.body.classList.add('gated'); $('#main').innerHTML=gateView(); setSync(); renderWho(); return; } document.body.classList.remove('gated');
   if(view==='admin'&&!(G.on&&G.admin)) view='more'; if(view==='team'&&G.on&&!G.admin) view='group';
   renderTabs(); setSync();
-  const back=['watch','team','prof','guide','admin','group','gjoin'].includes(view)?'<button class="back" data-tab="more">‹ Plus</button>':'';
-  $('#main').innerHTML= back+(view==='today'?todayView(): view==='plan'?planView(): view==='more'?moreView(): view==='races'?racesView(): view==='guide'?guideView(): view==='team'?teamView(): view==='watch'?watchView(): view==='admin'?adminView(): view==='group'?groupView(): view==='gjoin'?joinView(): profView());
-  renderWho(); if(modalKind==='fiche') drawFiche(); }
-const closeModal=()=>{ $('#modal').classList.remove('show','full'); modalKind=null; };
+  const back=['watch','team','prof','guide','admin','gjoin'].includes(view)?'<button class="back" data-tab="more">‹ Plus</button>':'';
+  $('#main').innerHTML= back+(view==='today'?todayView(): view==='plan'?planView(): view==='more'?moreView(): view==='races'?racesView(): view==='guide'?guideView(): view==='team'?teamView(): view==='watch'?watchView(): view==='admin'?adminView(): view==='group'?groupView(): view==='gjoin'?joinView(): profPaged(profView()));
+  renderWho(); if(modalKind==='fiche') drawFiche();
+  if(typeof needsOnboard==='function'&&needsOnboard()) setTimeout(()=>{ if(needsOnboard()) wzStart(); },400); }
+const closeModal=()=>{ $('#modal').classList.remove('show','full'); document.body.classList.remove('side'); modalKind=null; };
 let modalKind=null;
 
 /* ---------- programme ---------- */
@@ -1089,6 +1103,7 @@ function profView(){
   <p class="hint">${{debutant:'Débutant : 1 séance de qualité par semaine en foncier, répétitions −25 %, sorties longues −20 %, 3 séances max, allègement toutes les 3 semaines.',confirme:'Confirmé : programme standard.',expert:'Expert : répétitions +20 %, sorties longues +10 %, une séance de plus en développement et en spécifique (dans la limite de tes disponibilités).'}[P.level||'confirme']}</p>
   <div style="margin-top:12px" class="row"><button class="btn ghost sm" id="refreeze">Recalculer les semaines passées</button></div><p class="hint">Les semaines terminées sont figées 🔒 : changer une course ou ta VMA ne modifie que la semaine en cours et la suite. Ce bouton les recalcule avec les réglages actuels (les coches peuvent se perdre).</p>
   ${MULTI()&&(!G.on||G.admin)?'<div style="margin-top:12px"><button class="btn ghost sm danger" id="adel">Supprimer ce sportif</button></div>':''}
+  <div style="margin-top:10px"><button class="btn ghost sm" data-wzopen="1">Assistant de démarrage (VMA, jours, course)</button></div>
   <div class="toggle" style="margin-top:10px"><span class="small">Séances club communes : quand d'autres sportifs ont une séance de qualité le même jour, la même séance pour tous (allures et répétitions de chacun)</span><button class="sw ${P.noClub?'':'on'}" data-tog="noClub" aria-label="Séances club"></button></div></div>
   <div class="card sec"><h3>VMA</h3><div class="stepper"><button data-vma="1" aria-label="Plus lent">−</button><input class="big" data-p="vma" value="${fmtPaceSec(3600/P.vma)}"><button data-vma="-1" aria-label="Plus rapide">+</button><span class="mut">/km<br><small>${v1(P.vma)} km/h</small></span></div>
   <label class="f">Test VMA : distance parcourue (m)</label><div class="grid2"><input class="inp" id="t6" inputmode="numeric" placeholder="Demi-Cooper 6'"><input class="inp" id="t12" inputmode="numeric" placeholder="Cooper 12'"></div>
@@ -1623,19 +1638,20 @@ function toggleDone(k){ if(S.done[k]) delete S.done[k]; else S.done[k]=1; save()
 /* ---- ligne compacte (programme) ---- */
 function sessRow(ws,dk,s){ reg(ws,dk,s); const key=s.key, done=!!S.done[key], fe=(S.feel||{})[key]||{};
   return `<div class="swipe"><div class="swbg"><span>✓ Fait</span><span>${s.alts?'↻ Changer':'Détail'}</span></div>
-  <div class="srow ${s.cat} ${done?'done':''}" data-fiche="${esc(key)}"><div class="t"><div class="tag">${esc(TAGOF(s))}${fe.r?' · '+fe.r+'/5':''}${s.swapped?' · ↻':''}${s.moved?' · déplacée':''}</div><b>${esc(s.title)}</b><span>${rich(s.sum)}${s.dur?' · ≈ '+fmtMin(s.dur):''}</span>${schemaHTML(s)}</div>
+  <div class="srow ${s.cat} ${done?'done':''}" data-fiche="${esc(key)}"><div class="t"><div class="tag">${esc(TAGOF(s))}${fe.r?' · '+fe.r+'/5':''}${s.swapped?' · ↻':''}${s.moved?' · déplacée':''}</div><b>${esc(s.title)}</b><span>${rich(s.sum)}${s.dur?' · ≈ '+fmtMin(s.dur):''}</span>${clubChip(s)}${schemaHTML(s)}</div>
   ${s.cat==='off'?'':`<button class="chk ${done?'on':''}" data-done="${esc(key)}" aria-label="${done?'Marquer à faire':'Marquer comme faite'}">${done?'✓':''}</button>`}</div></div>`; }
 
 /* ---- actions principales ---- */
 function actsHTML(s){ const key=esc(s.key), done=!!S.done[s.key];
   const third=s.alts?`<button data-chg="${key}"><span class="ic">↻</span>Changer</button>`:s.wk?`<button data-tow="${key}"><span class="ic">✎</span>Modifier</button>`:`<button data-fiche="${key}"><span class="ic">☰</span>Détail</button>`;
-  return `<div class="acts"><button class="${done?'on':''}" data-done="${key}"><span class="ic">✓</span>${done?'Faite':'Fait'}</button>
-    ${s.wk?`<button data-fw="${key}"><span class="ic">⌚</span>Montre</button>`:`<button data-calopen="${key}"><span class="ic">📅</span>Agenda</button>`}${third}</div>
+  const canReal=s.cat!=='race'&&s.cat!=='off';
+  return `<div class="acts${canReal?' a4':''}"><button class="${done?'on':''}" data-done="${key}"><span class="ic">✓</span>${done?'Faite':'Fait'}</button>
+    ${s.wk?`<button data-fw="${key}"><span class="ic">⌚</span>Montre</button>`:`<button data-calopen="${key}"><span class="ic">📅</span>Agenda</button>`}${third}${canReal?`<button class="${s.real?'on2':''}" data-realopen="${key}"><span class="ic">✎</span>${s.real?'Réalisé ✓':'Réalisé'}</button>`:''}</div>
     ${s.wk?`<div class="fwbox" data-fwbox="${key}" style="display:none;margin-top:8px"><div class="row"><button class="btn sm" data-wx="apple" data-key="${key}">Apple Watch</button><button class="btn sm" data-wx="garmin" data-key="${key}">Garmin</button>${s.alts?`<button class="btn ghost sm" data-tow="${key}">✎ Modifier</button>`:''}</div><p class="hint">Allure ± 10 s/km. ${STANDALONE?'':'Depuis Claude, le fichier arrive dans un .zip à ouvrir dans Fichiers. '}<button class="linkbtn" data-howto="1">Comment faire ?</button></p></div>`:''}`; }
 
 /* ---- carte héros (Aujourd'hui) ---- */
 function heroHTML(ws,dk,s,kick){ reg(ws,dk,s); const fe=(S.feel||{})[s.key]||{};
-  return `<div class="hero"><div data-fiche="${esc(s.key)}" style="cursor:pointer"><div class="kick" style="color:var(--${s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':s.cat==='race'?'race':'run'})">${esc(kick||TAGOF(s))}</div><h2 class="cond">${esc(s.title)}</h2><div class="small mut" style="margin-top:2px">${rich(s.sum)}</div>
+  return `<div class="hero"><div data-fiche="${esc(s.key)}" style="cursor:pointer"><div class="kick" style="color:var(--${s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':s.cat==='race'?'race':'run'})">${esc(kick||TAGOF(s))}</div><h2 class="cond">${esc(s.title)}</h2><div class="small mut" style="margin-top:2px">${rich(s.sum)}</div>${clubChip(s)}
     ${schemaHTML(s,true)}</div><div class="kpis">${keyFigures(s).map(([l,v])=>`<div class="kpi"><small>${l}</small><b>${esc(v)}</b></div>`).join('')}</div>
     ${s.cat==='off'?'':actsHTML(s)}${S.done[s.key]&&s.cat!=='race'&&s.cat!=='off'?feelHTML(s):''}
     <div style="margin-top:10px"><button class="linkbtn small" data-fiche="${esc(s.key)}">Voir le descriptif complet ›</button></div></div>`; }
@@ -1680,7 +1696,6 @@ function todayView(){
 /* ---- vue Plus ---- */
 function moreView(){
   const it=[['export','Exporter','Programme en PDF ou dans le Calendrier (1 à 4 mois)'],['watch','Montre','Créer une séance pour Apple Watch ou Garmin']];
-  if(ROOT.profiles.length>1) it.unshift(['group','Groupe','Aujourd\'hui au club, semaine et courses de chacun']);
   if(G.on&&G.admin) it.unshift(['admin','Console admin','Sportifs, liens personnels, sauvegarde du club']);
   if(!G.on||G.admin) it.push(['team','Sportifs','Profils, binômes, changer de sportif']);
   it.push(['prof','Profil','VMA, cardio, natation, disponibilités'+(G.on&&!G.admin?'':', sauvegarde')],['guide','Guide','Mode d\'emploi et fichiers montre']);
@@ -1689,7 +1704,7 @@ function moreView(){
 
 /* ---- fiche plein écran ---- */
 let ficheKey=null;
-function openFiche(key){ if(!SESS[key]) return; ficheKey=key; modalKind='fiche'; const m=$('#modal'); m.classList.add('show','full'); drawFiche(); $('#sheet').scrollTop=0; }
+function openFiche(key){ if(!SESS[key]) return; ficheKey=key; modalKind='fiche'; const m=$('#modal'); m.classList.add('show','full'); document.body.classList.add('side'); drawFiche(); $('#sheet').scrollTop=0; }
 function drawFiche(){ const s=SESS[ficheKey]; if(!s){ closeModal(); return; } const key=s.key, ws=SESSWS[key], dk=SESSDK[key], ek=esc(key);
   const d=parseD(dk), done=!!S.done[key];
   let h=`<div class="fback"><button data-close="1">‹ Retour</button><span class="small mut">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>
@@ -2043,40 +2058,55 @@ function alsoIn(r,pid){ return ROOT.profiles.filter(p=>p.id!==pid&&p.id!==r.part
 function commonHTML(r){ if(ROOT.profiles.length<2) return ''; const L=alsoIn(r,ROOT.active); return L.length?`<p class="hint" style="margin:6px 0 0">👥 Aussi au départ : ${L.map(p=>'<b>'+esc(p.name)+'</b>').join(', ')} · préparations calées sur la même date</p>`:''; }
 
 /* ---- vue Groupe : calendrier du club ---- */
+let GFILT='all';
+function partnersOf(pid){ const me=ath(pid); if(!me) return new Set(); const S2=new Set();
+  for(const p of ROOT.profiles){ if(p.id===pid) continue;
+    if(p.data.races.some(r=>r.date>=TODAY&&(me.data.races.some(x=>sameRace(x,r))||(r.duo&&r.partner===pid)))||me.data.races.some(r=>r.duo&&r.partner===p.id&&r.date>=TODAY)) S2.add(p.id); }
+  return S2; }
 function groupView(){
+  const EC={}; const eng=pid=>EC[pid]||(EC[pid]=engineFor(pid,true));
+  const ws=mondayOf(new Date()), ti=wd(new Date()), me=ROOT.active;
+  const todayOf=p=>{ try{ return eng(p.id).buildWeek(ws).days[ti].filter(s=>s.cat!=='off'); }catch(e){ return []; } };
+  const PT=partnersOf(me);
+  let members=ROOT.profiles.slice().sort((a,b)=>(a.id===me?-1:b.id===me?1:0)||String(a.name).localeCompare(String(b.name),'fr'));
+  if(GFILT==='part') members=members.filter(p=>p.id===me||PT.has(p.id));
+  if(GFILT==='today') members=members.filter(p=>todayOf(p).length);
+  const ids=new Set(members.map(p=>p.id));
+  const dot=p=>`<span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span>`;
+  let h=`<h2 class="cond" style="margin:8px 0 10px;font-size:26px;text-transform:uppercase">Groupe</h2>
+  <div class="gfilt">${[['all','Tous ('+ROOT.profiles.length+')'],['part','Mes partenaires de course'],['today','Club du jour']].map(([k,l])=>`<button class="${GFILT===k?'on':''}" data-gf="${k}">${l}</button>`).join('')}</div>`;
+  if(GFILT==='part'&&!PT.size) h+=`<p class="hint" style="margin:0 0 10px">Personne d'autre n'est inscrit sur tes courses pour l'instant.</p>`;
+  // aujourd'hui
+  let rows=''; for(const p of members){ const L=todayOf(p); if(!L.length) continue; const all=L.filter(s=>s.cat!=='race'), dn=all.length&&all.every(s=>p.data.done[s.key]);
+    rows+=`<div class="gline">${dot(p)}<span class="nm">${esc(p.name)}</span><span class="tx">${L.map(s=>esc(s.title)).join(' + ')}</span>${dn?'<b style="color:var(--ev-att)">✓</b>':''}${L.some(s=>s.club)?'<span title="Séance club">👥</span>':''}</div>`; }
+  h+=`<div class="sectitle" style="margin-top:4px">Aujourd'hui</div><div class="card" style="padding:4px 12px;margin-bottom:6px">${rows||'<p class="small mut">Pas de séance prévue aujourd\'hui.</p>'}</div>`;
+  // semaine
+  h+=`<div class="sectitle">Cette semaine</div><div class="card" style="padding:4px 12px">`;
+  for(const p of members){ let ph='', W=null; try{ ph=eng(p.id).weekCtx(ws).phase; W=eng(p.id).buildWeek(ws); }catch(e){}
+    let nd=0, nt=0; const lines=[]; if(W) for(let i=0;i<7;i++){ const L=W.days[i].filter(s=>s.cat!=='off'); if(!L.length) continue;
+      lines.push(`<div class="wkl${i===ti?' tdy':''}"><span>${DSHORT[i]}</span><div>${L.map(s=>{ const d=!!p.data.done[s.key]; if(s.cat!=='race'){ nt++; if(d) nd++; } return `<div>${d?'<b class="ok">✓</b> ':''}${esc(s.title)}${s.real?' <span class="mut">('+esc(realDesc(s.real))+')</span>':''}${s.club?' 👥':''}</div>`; }).join('')}</div></div>`); }
+    h+=`<details class="gmem"><summary class="gline">${dot(p)}<span class="nm">${esc(p.name)}${p.id===me?' <span class="chip">Moi</span>':''}</span><span class="tx">${esc(ph)}</span><span class="chip">${nd}/${nt}</span></summary><div class="wk">${lines.join('')||'<p class="small mut">Pas de séance cette semaine.</p>'}</div></details>`; }
+  h+='</div>';
+  // courses
   const items=[]; for(const p of ROOT.profiles) for(const r of p.data.races) if(r.date&&r.date>=TODAY) items.push({r,p});
   items.sort((a,b)=>a.r.date<b.r.date?-1:a.r.date>b.r.date?1:0);
-  const groups=[]; for(const it of items){ const g=groups.find(g=>sameRace(g[0].r,it.r)); if(g) g.push(it); else groups.push([it]); }
-  const EC={}; const eng=pid=>EC[pid]||(EC[pid]=engineFor(pid,true));
-  let h=`<h2 class="cond" style="margin:8px 0 4px;font-size:26px;text-transform:uppercase">Groupe</h2>
-  <p class="hint" style="margin:0 0 12px">Les courses à venir de tout le club, avec les objectifs de chacun.${G.on&&!G.admin?' Tu peux modifier uniquement les tiennes (Plus › Courses).':''}</p>`;
-  { const ti=wd(new Date()), ws=mondayOf(new Date()); let rows='';
-    for(const p of ROOT.profiles){ let L=[]; try{ L=eng(p.id).buildWeek(ws).days[ti].filter(s=>s.cat!=='off'); }catch(e){} if(!L.length) continue;
-      rows+=`<div class="grow"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="small mut">${L.map(s=>(p.data.done[s.key]?'✓ ':'')+esc(s.title)).join(' + ')}</div></div></div>`; }
-    h+=`<div class="sectitle" style="margin-top:4px">Aujourd'hui au club</div><div class="card" style="padding:6px 12px;margin-bottom:6px">${rows||'<p class="small mut">Personne n\'a de séance prévue aujourd\'hui.</p>'}</div><div class="sectitle">Courses à venir</div>`; }
-  if(!groups.length) h+=`<div class="card empty">Aucune course à venir pour l'instant.</div>`;
+  let groups=[]; for(const it of items){ const gg=groups.find(x=>sameRace(x[0].r,it.r)); if(gg) gg.push(it); else groups.push([it]); }
+  if(GFILT!=='all') groups=groups.filter(gg=>gg.some(it=>ids.has(it.p.id)||(it.r.duo&&ids.has(it.r.partner))));
+  h+=`<div class="sectitle">Courses à venir</div>`;
+  if(!groups.length) h+=`<div class="card empty">Aucune course à venir.</div>`;
   let lastM='';
-  for(const g of groups){ const r0=g[0].r, d=parseD(r0.date), m=MONTHS[d.getMonth()]+' '+d.getFullYear();
+  for(const gg of groups){ const r0=gg[0].r, d=parseD(r0.date), m=MONTHS[d.getMonth()]+' '+d.getFullYear();
     if(m!==lastM){ h+=`<div class="small mut" style="margin:12px 2px 6px;text-transform:uppercase;font-weight:600">${m}</div>`; lastM=m; }
-    const e0=eng(g[0].p.id), bb=e0.bigs(r0);
-    const desc=r0.type==='swimrun'?`${r0.km||0} km course + ${r0.swimKm||0} km nage`:`${r0.km||0} km${+r0.dplus?' · '+r0.dplus+' m D+':''}`;
-    h+=`<div class="card" style="margin-bottom:8px"><div class="row" style="align-items:flex-start"><div style="text-align:center;min-width:44px"><b class="cond" style="font-size:24px;line-height:1">${d.getDate()}</b><div class="small mut">${DSHORT[wd(d)]}</div></div>
-      <div style="flex:1;min-width:0"><b>${esc(r0.name)}</b><div class="small mut">${TYPES[r0.type]||''} · ${desc}${g.length>1?' · <b>'+g.length+' du club</b>':''}</div></div></div><div class="glist">`;
-    for(const {r,p} of g){ let ev=null; try{ ev=eng(p.id).evaluate(Object.assign({},r,{_owner:p.id})); }catch(e){}
+    const desc=r0.type==='swimrun'?`${r0.km||0} km + ${r0.swimKm||0} km nage`:`${r0.km||0} km${+r0.dplus?' · '+r0.dplus+' m D+':''}`;
+    h+=`<div class="card" style="margin-bottom:8px;padding:10px 12px"><div class="row" style="align-items:flex-start"><div style="text-align:center;min-width:40px"><b class="cond" style="font-size:22px;line-height:1">${d.getDate()}</b><div class="small mut">${DSHORT[wd(d)]}</div></div>
+      <div style="flex:1;min-width:0"><b>${esc(r0.name)}</b><div class="small mut">${TYPES[r0.type]||''} · ${desc}${gg.length>1?' · <b>'+gg.length+' du club</b>':''}</div></div></div>`;
+    for(const {r,p} of gg){ let ev=null; try{ ev=eng(p.id).evaluate(Object.assign({},r,{_owner:p.id})); }catch(e){}
       const partner=r.duo&&ath(r.partner)?' + '+esc(ath(r.partner).name):'';
-      h+=`<div class="grow"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}${partner}</b> <span class="prio ${r.prio} mini">${r.prio}</span>
-        <div class="small mut">${ev&&ev.goal?'Objectif '+fmtHMS(ev.goal):'Pas d\'objectif chrono'}${ev?' · prévision '+fmtHMS(ev.pDay):''}</div></div>${ev&&ev.ev?`<span class="evchip ${ev.ev.k}">${esc(ev.ev.l)}</span>`:''}</div>`; }
-    h+='</div></div>'; }
-  h+=`<div class="sectitle" style="margin-top:18px">Membres (${ROOT.profiles.length}) · cette semaine</div><div class="card" style="padding:6px 12px">`;
-  const ws=mondayOf(new Date()), ti=wd(new Date());
-  for(const p of ROOT.profiles){ let ph='', W=null; try{ ph=eng(p.id).weekCtx(ws).phase; W=eng(p.id).buildWeek(ws); }catch(e){}
-    const R=p.data.races.filter(r=>r.date>=TODAY).sort((a,b)=>a.date<b.date?-1:1), A=R.find(r=>r.prio==='A')||R[0];
-    let nd=0, nt=0; const rows=[]; if(W) for(let i=0;i<7;i++){ const L=W.days[i].filter(s=>s.cat!=='off'); if(!L.length) continue;
-      rows.push(`<div class="wkl${i===ti?' tdy':''}"><span>${DSHORT[i]}</span><div>${L.map(s=>{ const d=!!p.data.done[s.key]; if(s.cat!=='race'){ nt++; if(d) nd++; } return `<div>${d?'<b class="ok">✓</b> ':''}${esc(s.title)}${s.real?' <span class="mut">('+esc(realDesc(s.real))+')</span>':''}</div>`; }).join('')}</div></div>`); }
-    h+=`<details class="gmem"><summary class="grow"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b>${p.id===ROOT.active?' <span class="chip">Moi</span>':''}<div class="small mut">${esc(ph)}${A?' · 🏁 '+esc(A.name)+' ('+parseD(A.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+')':''}</div></div><span class="chip">${nd}/${nt}</span></summary>
-      <div class="wk">${rows.join('')||'<p class="small mut">Pas de séance cette semaine.</p>'}</div></details>`; }
-  return h+'</div><p class="hint">Séances club : quand plusieurs sportifs ont une séance de qualité le même jour, l\'appli leur donne la même séance (chacun à ses allures). Désactivable dans Profil.</p>';
+      h+=`<div class="gline">${dot(p)}<span class="nm">${esc(p.name)}${partner} <span class="prio ${r.prio} mini">${r.prio}</span></span><span class="tx">${ev&&ev.goal?'Objectif '+fmtHMS(ev.goal):'Prévision '+(ev?fmtHMS(ev.pDay):'—')}</span>${ev&&ev.ev?`<span class="evchip ${ev.ev.k}">${esc(ev.ev.l)}</span>`:''}</div>`; }
+    h+='</div>'; }
+  return h+'<p class="hint">👥 = séance club : même séance que d\'autres le même jour, chacun à ses allures. Désactivable dans Profil › Allures.</p>';
 }
+document.addEventListener('click',e=>{ const t=e.target.closest('[data-gf]'); if(!t) return; GFILT=t.dataset.gf; render(); });
 
 /* ---- écrans d'accueil / connexion ---- */
 function gateView(){
@@ -2114,7 +2144,7 @@ function adminView(){
   if(late) h+=`<div class="ev amb" style="margin-bottom:12px"><b>Sauvegarde du club ${lb?'de plus d\'un mois':'jamais faite'}</b>Télécharge une sauvegarde (en bas de page) et garde-la dans tes fichiers.</div>`;
   h+=`<div class="sectitle">Sportifs (${L.length}/${MAXATH})</div><div class="list">`;
   for(const p of L){ const up=G.meta&&G.meta[p.id];
-    h+=`<div class="card"><div class="row"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="small mut">${up?'Modifié '+when(up):'—'}${p.id===ROOT.active?' · affiché':''}</div></div></div>
+    h+=`<div class="card admrow"><div class="row"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="small mut">${up?'Modifié '+when(up):'—'}${p.id===ROOT.active?' · affiché':''}</div></div></div>
       <div class="row" style="flex-wrap:wrap;margin-top:10px;gap:6px"><button class="btn sm" data-glink="${p.id}">Envoyer le lien</button><button class="btn ghost sm" data-gcopy="${p.id}">Copier</button><button class="btn ghost sm" data-goath="${p.id}">Programme</button><button class="btn ghost sm" data-gregen="${p.id}">Nouveau lien</button></div></div>`; }
   h+=`</div><p class="hint">« Envoyer le lien » ouvre le partage (SMS, mail…). Chaque lien ouvre le programme d'un seul sportif. « Nouveau lien » rend l'ancien inutilisable (lien perdu ou transmis par erreur). Pour modifier le profil ou les courses d'un sportif : « Programme », puis Plus › Profil ou Courses.</p>
   <div class="card sec"><h3>Sauvegarde du club</h3><p class="small" style="margin:0 0 8px">Dernière sauvegarde : <b>${lb?when(lb)+' ('+new Date(lb).toLocaleDateString('fr-FR')+')':'jamais'}</b></p>
@@ -2301,7 +2331,7 @@ let RT='run';
 function editHTML(s){ const k=esc(s.key), e=(S.edits||{})[s.key], x=(S.real||{})[s.key];
   const txt=e?e.text:s.blocks.map(b=>'— '+b.h+'\n'+b.l.join('\n')).join('\n').replace(/‹[^›]*›/g,'').replace(/ +\n/g,'\n');
   RT=x?x.t:(s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':'run');
-  return `<details class="fd"${e||x?' open':''}><summary>✎ Modifier / saisir ce que j'ai fait${e?' (modifiée)':''}${x?' (réalisé saisi)':''}</summary><div class="in">
+  return `<details class="fd" id="editbox"${e||x?' open':''}><summary>✎ Modifier / saisir ce que j'ai fait${e?' (modifiée)':''}${x?' (réalisé saisi)':''}</summary><div class="in">
    <h4>Ce que j'ai vraiment fait</h4><div class="pills">${Object.entries(RTYPES).map(([t,l])=>`<button class="${RT===t?'on':''}" data-rt="${t}">${l}</button>`).join('')}</div>
    <div class="grid2"><div><label class="f">Durée (min)</label><input class="inp" id="re-dur" inputmode="numeric" value="${esc(x?x.dur||'':s.dur||'')}"></div><div><label class="f">Distance (km)</label><input class="inp" id="re-km" inputmode="decimal" value="${esc(x?x.km||'':'')}"></div></div>
    <label class="f">Commentaire</label><input class="inp" id="re-note" value="${esc(x?x.note||'':'')}" placeholder="Ex. raccourci, genou sensible…">
@@ -2343,6 +2373,80 @@ function icuSheet(title,txt,fitKey){ modalKind='txt';
 document.addEventListener('click',e=>{ if(!e.target.closest('[data-icucopy]')) return; const t=($('#icutxt')||{}).value||'';
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('Texte copié : colle-le dans intervals.icu'),()=>toast('Sélectionne le texte et copie-le'));
   window.open('https://intervals.icu/calendar','_blank'); });
+
+/* ===================== design : pastille club, sous-pages profil, synchro compacte ===================== */
+ICON.group=ICON.team; ICON.admin=ICON.prof;
+function clubChip(s){ if(!s||!s.club) return ''; const L=s.club, n=L.length+1;
+  const dots=L.slice(0,5).map(nm=>{ const p=ROOT.profiles.find(x=>x.name===nm); return `<i style="background:${p?p.color:'#999'}">${esc(String(nm).slice(0,1).toUpperCase())}</i>`; }).join('')+(L.length>5?`<i class="more">+${L.length-5}</i>`:'');
+  return `<span class="clubchip" title="Séance club avec ${esc(L.join(', '))}">👥 Séance club · ${n}<span class="cdots">${dots}</span></span>`; }
+document.addEventListener('click',e=>{ let t;
+  if(t=e.target.closest('[data-realopen]')){ e.stopPropagation(); const k=t.dataset.realopen; if(modalKind!=='fiche'||ficheKey!==k) openFiche(k);
+    setTimeout(()=>{ const d=document.getElementById('editbox'); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'start'}); } },60); return; }
+  if(e.target.closest('#sync')){ const el=$('#sync'); toast((el.querySelector('span')||{}).textContent||''); return; }
+},true);
+let PROFTAB='allures';
+const PTABS=[['allures','Allures'],['dispos','Disponibilités'],['nat','Natation'],['prefs','Préférences'],['data','Mes données']];
+const PMAP={'Sportif':'allures','VMA':'allures','Cardio':'allures','Mes zones':'allures','Disponibilités':'dispos','Natation':'nat','Fractionné':'prefs','Préférences de séances':'prefs','Gestes':'prefs','Sauvegarde':'data','Mes données':'data'};
+function profPaged(html){ const parts=html.split('<div class="card sec">'); const head=parts.shift(); const G2={};
+  for(const p of parts){ const m=p.match(/^<h3>([^<]*)<\/h3>/); const g=(m&&PMAP[m[1]])||'data'; (G2[g]=G2[g]||[]).push('<div class="card sec">'+p); }
+  if(!G2[PROFTAB]) PROFTAB='allures';
+  return head+`<div class="ptabs">${PTABS.filter(([k])=>G2[k]).map(([k,l])=>`<button class="${PROFTAB===k?'on':''}" data-ptab="${k}">${l}</button>`).join('')}</div>`+(G2[PROFTAB]||[]).join(''); }
+document.addEventListener('click',e=>{ const t=e.target.closest('[data-ptab]'); if(!t) return; PROFTAB=t.dataset.ptab; render(); window.scrollTo(0,0); });
+
+/* ===================== assistant de démarrage ===================== */
+let WZ=null;
+function needsOnboard(){ return !!(G.on&&!G.admin&&S&&!GATE&&!S.profile.onboarded&&+S.profile.vma===13.5&&!(S.races||[]).length&&!WZ&&!sessionStorage.getItem('coach-wz-later')); }
+function wzStart(){ const P=S.profile; WZ={step:0,mode:'race',pace:fmtPaceSec(3600/P.vma),dist:'10',time:'',lvl:P.level||'confirme',age:P.age||'',sex:P.sex||'',fcmax:P.fcmax||'',fcrepos:P.fcrepos||'',
+  avail:JSON.parse(JSON.stringify(P.avail)),lrDay:P.lrDay,wmax:+P.weekdayMax||0,race:{name:'',date:'',type:'route',km:'',goal:''}}; modalKind='wiz'; wzDraw(); $('#modal').classList.add('show'); }
+function wzVma(){ if(WZ.mode==='pace'){ const s=parseHMS(WZ.pace); return s&&s>150&&s<600?3600/s:null; }
+  if(WZ.mode==='race'){ const t=parseHMS(WZ.time), km=+WZ.dist; if(!t||!km) return null; let lo=8, hi=26; for(let i=0;i<40;i++){ const mid=(lo+hi)/2; if(EN.predict({type:'route',km},mid)>t) lo=mid; else hi=mid; } return Math.round((lo+hi)/2*10)/10; }
+  return {debutant:11.5,confirme:13.5,expert:16}[WZ.lvl]; }
+function wzDraw(){ const W=WZ, st=W.step, name=activeAth().name; let b='';
+  const dots=`<div class="row" style="gap:6px;margin:4px 0 12px">${[0,1,2,3].map(i=>`<span style="flex:1;height:4px;border-radius:2px;background:${i<=st?'var(--run)':'var(--line)'}"></span>`).join('')}</div>`;
+  if(st===0){ const v=wzVma();
+    b=`<h3>Bienvenue ${esc(name)} !</h3><p class="small">4 questions rapides pour calculer tes allures. Étape 1 : ta VMA.</p>
+    <div class="pills">${[['race','Un chrono récent'],['pace','Je connais mon allure VMA'],['none','Je ne sais pas']].map(([k,l])=>`<button class="${W.mode===k?'on':''}" data-wzm="${k}">${l}</button>`).join('')}</div>
+    ${W.mode==='race'?`<label class="f">Distance</label><div class="pills">${[['5','5 km'],['10','10 km'],['21.1','Semi'],['42.195','Marathon']].map(([k,l])=>`<button class="${W.dist===k?'on':''}" data-wzd="${k}">${l}</button>`).join('')}</div>
+      <label class="f">Ton temps (ex. 48:30 ou 1:52:00)</label><input class="inp" data-wz="time" value="${esc(W.time)}" placeholder="mm:ss ou h:mm:ss"><p class="hint">Une course ou une sortie à fond de moins de 6 mois, sur route plate.</p>`:''}
+    ${W.mode==='pace'?`<label class="f">Allure VMA (min/km, ex. 4:27)</label><input class="inp" data-wz="pace" value="${esc(W.pace)}"><p class="hint">L'allure que tu tiens environ 6 minutes à fond.</p>`:''}
+    ${W.mode==='none'?`<label class="f">Ton niveau</label><div class="pills">${[['debutant','Débutant'],['confirme','Régulier'],['expert','Confirmé / compétiteur']].map(([k,l])=>`<button class="${W.lvl===k?'on':''}" data-wzl="${k}">${l}</button>`).join('')}</div><p class="hint">Valeur de départ : fais un test VMA dès que possible (il est proposé dans le programme).</p>`:''}
+    <div class="ev att" id="wzres" style="margin-top:12px">${v?`<b>VMA estimée : ${fmtPaceSec(3600/v)}/km · ${v1(v)} km/h</b>Tu pourras l'ajuster dans Profil.`:'<b>Renseigne ton chrono pour estimer ta VMA</b>'}</div>`; }
+  if(st===1) b=`<h3>Toi</h3><p class="small">Étape 2 : pour le cardio et le volume d'entraînement.</p>
+    <div class="grid2"><div><label class="f">Âge</label><input class="inp" inputmode="numeric" data-wz="age" value="${esc(W.age)}"></div><div><label class="f">Sexe</label><div class="seg"><button class="${W.sex==='F'?'on':''}" data-wzs="F">Femme</button><button class="${W.sex==='M'?'on':''}" data-wzs="M">Homme</button></div></div></div>
+    <div class="grid2"><div><label class="f">FC max (si connue)</label><input class="inp" inputmode="numeric" data-wz="fcmax" value="${esc(W.fcmax)}"></div><div><label class="f">FC repos (si connue)</label><input class="inp" inputmode="numeric" data-wz="fcrepos" value="${esc(W.fcrepos)}"></div></div>
+    <label class="f">Niveau</label><div class="pills">${[['debutant','Débutant'],['confirme','Confirmé'],['expert','Expert']].map(([k,l])=>`<button class="${W.lvl===k?'on':''}" data-wzl="${k}">${l}</button>`).join('')}</div>`;
+  if(st===2){ const av=k=>DSHORT.map((d,i)=>`<button class="${k} ${W.avail[k].includes(i)?'on':''}" data-wza="${k}:${i}">${W.avail[k].includes(i)?'✓':''}</button>`).join('');
+    b=`<h3>Tes disponibilités</h3><p class="small">Étape 3 : les jours où tu peux t'entraîner.</p>
+    <div class="avail"><span></span>${DSHORT.map(d=>`<span class="h">${d[0]}</span>`).join('')}<span>Course</span>${av('run')}<span>Natation</span>${av('swim')}<span>Renfo</span>${av('renfo')}</div>
+    <label class="f">Jour de la sortie longue</label><div class="seg"><button class="${W.lrDay==null?'on':''}" data-wzlr="">Auto</button>${DSHORT.map((d,i)=>`<button class="${W.lrDay===i?'on':''}" data-wzlr="${i}">${d[0]}</button>`).join('')}</div>
+    <label class="f">Temps max de course en semaine</label><div class="seg">${[[45,"45'"],[60,'1h'],[75,'1h15'],[0,'Sans limite']].map(([n,l])=>`<button class="${W.wmax===n?'on':''}" data-wzw="${n}">${l}</button>`).join('')}</div>`; }
+  if(st===3){ const R=W.race; b=`<h3>Ta prochaine course</h3><p class="small">Étape 4 : le programme se construit autour. Tu peux aussi le faire plus tard dans l'onglet Courses.</p>
+    <label class="f">Nom</label><input class="inp" data-wzr="name" value="${esc(R.name)}" placeholder="Ex. Semi de Lyon">
+    <div class="grid2"><div><label class="f">Date</label><input class="inp" type="date" data-wzr="date" value="${esc(R.date)}"></div><div><label class="f">Distance (km)</label><input class="inp" inputmode="decimal" data-wzr="km" value="${esc(R.km)}"></div></div>
+    <label class="f">Type</label><div class="seg">${Object.entries(TYPES).map(([k,l])=>`<button class="${R.type===k?'on':''}" data-wzt="${k}">${l}</button>`).join('')}</div>
+    <label class="f">Objectif chrono (facultatif)</label><input class="inp" data-wzr="goal" value="${esc(R.goal)}" placeholder="ex. 1:45:00"><p class="hint">Pour un swimrun ou un trail, complète ensuite le dénivelé et la natation dans Courses.</p>`; }
+  $('#sheet').innerHTML=dots+b+`<div class="row between" style="margin-top:16px">${st?'<button class="btn ghost" data-wzgo="-1">‹ Retour</button>':'<button class="btn ghost" data-wzlater="1">Plus tard</button>'}<button class="btn" data-wzgo="1">${st===3?(W.race.name&&W.race.date?'Terminer':'Terminer sans course'):'Suivant ›'}</button></div>`; }
+function wzFinish(){ const W=WZ, P=S.profile; const v=wzVma(); if(v) P.vma=Math.round(v*100)/100;
+  if(+W.age) P.age=+W.age; if(W.sex) P.sex=W.sex; P.fcmax=+W.fcmax||null; P.fcrepos=+W.fcrepos||null; P.level=W.lvl; P.avail=W.avail; P.lrDay=W.lrDay; P.weekdayMax=W.wmax; P.onboarded=true;
+  const R=W.race; if(R.name&&R.date) S.races.push({id:Date.now(),name:R.name.trim(),date:R.date,type:R.type,km:String(R.km).replace(',','.'),dplus:'',terrain:'roulant',swimKm:'',swimSeg:'',prio:'A',goal:R.goal,duo:false,partner:null});
+  WZ=null; closeModal(); save(); view='today'; render(); window.scrollTo(0,0); toast('C\'est prêt : voici ton programme'); }
+document.addEventListener('click',e=>{ if(modalKind!=='wiz'||!WZ) return; let t; const W=WZ;
+  if(t=e.target.closest('[data-wzm]')){ W.mode=t.dataset.wzm; wzDraw(); }
+  else if(t=e.target.closest('[data-wzd]')){ W.dist=t.dataset.wzd; wzDraw(); }
+  else if(t=e.target.closest('[data-wzl]')){ W.lvl=t.dataset.wzl; wzDraw(); }
+  else if(t=e.target.closest('[data-wzs]')){ W.sex=t.dataset.wzs; wzDraw(); }
+  else if(t=e.target.closest('[data-wzt]')){ W.race.type=t.dataset.wzt; wzDraw(); }
+  else if(t=e.target.closest('[data-wzlr]')){ W.lrDay=t.dataset.wzlr===''?null:+t.dataset.wzlr; wzDraw(); }
+  else if(t=e.target.closest('[data-wzw]')){ W.wmax=+t.dataset.wzw; wzDraw(); }
+  else if(t=e.target.closest('[data-wza]')){ const [k,i]=t.dataset.wza.split(':'); const a=W.avail[k], n=+i; W.avail[k]=a.includes(n)?a.filter(x=>x!==n):a.concat(n).sort(); wzDraw(); }
+  else if(e.target.closest('[data-wzlater]')){ sessionStorage.setItem('coach-wz-later','1'); WZ=null; closeModal(); }
+  else if(t=e.target.closest('[data-wzgo]')){ const d=+t.dataset.wzgo; if(d>0&&W.step===0&&!wzVma()){ toast('Indique ton chrono, ton allure ou ton niveau'); return; } if(d>0&&W.step===2&&!W.avail.run.length){ toast('Coche au moins un jour de course'); return; }
+    if(d>0&&W.step===3){ wzFinish(); return; } W.step=Math.max(0,W.step+d); wzDraw(); $('#sheet').scrollTop=0; }
+  else return;
+  e.stopPropagation(); },true);
+document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const t=e.target; if(t.dataset.wz){ WZ[t.dataset.wz]=t.value; if(WZ.step===0){ const v=wzVma(), r=$('#wzres'); if(r) r.innerHTML=v?`<b>VMA estimée : ${fmtPaceSec(3600/v)}/km · ${v1(v)} km/h</b>Tu pourras l'ajuster dans Profil.`:'<b>Renseigne ton chrono pour estimer ta VMA</b>'; } }
+  if(t.dataset.wzr) WZ.race[t.dataset.wzr]=t.value; });
+document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ---------- démarrage ---------- */
 (async()=>{ if(GROUP_OK&&gWanted()){ gStart(); return; }

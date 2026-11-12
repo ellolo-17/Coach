@@ -916,7 +916,7 @@ function myRaces(){ return racesFor(ROOT.active); }
 function when(iso){ if(!iso) return ''; const d=new Date(iso); const t=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); return ymd(d)===TODAY? t : d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' '+t; }
 function setSync(m){ if(m) mode=m; const el=$('#sync'); el.className='sync'+(mode==='cloud'?' cloud':'');
   const w=ROOT.savedAt?' · '+when(ROOT.savedAt):'';
-  if(G.on){ el.className='sync'+(G.state==='ok'?' cloud':''); el.querySelector('span').textContent=(G.admin?'Admin':'Groupe')+' · '+(G.state==='ok'?'synchro'+w:G.state==='wait'?'connexion…':G.state==='pending'?'envoi…':'hors ligne'+w); el.title='Données partagées du club'; return; }
+  if(G.on){ el.className='sync'+(G.state==='ok'?' cloud':''); el.querySelector('span').textContent=(G.preview?'Aperçu':G.admin?'Admin':'Groupe')+' · '+(G.state==='ok'?'synchro'+w:G.state==='wait'?'connexion…':G.state==='pending'?'envoi…':'hors ligne'+w); el.title='Données partagées du club'; return; }
   el.querySelector('span').textContent= STANDALONE?'Autonome'+w: mode==='cloud'?'Synchro'+w : mode==='slow'?'Connexion…' : 'Local'+w; el.title=STANDALONE?'Version autonome : données dans ce navigateur':mode==='cloud'?'Sauvegardé et synchronisé sur ton compte':'Enregistré sur cet appareil'; }
 function save(){ refresh(); clearTimeout(saveT); saveT=setTimeout(flush,600); }
 function flush(){
@@ -962,7 +962,7 @@ function renderTabs(){
 }
 function render(){
   if(GATE){ document.body.classList.add('gated'); $('#main').innerHTML=gateView(); setSync(); renderWho(); return; } document.body.classList.remove('gated');
-  if(view==='admin'&&!(G.on&&G.admin)) view='more'; if(view==='team'&&G.on&&!G.admin) view='group';
+  if(view==='admin'&&!(G.on&&ADM())) view='more'; if(view==='team'&&G.on&&!ADM()) view='group'; pvBar();
   renderTabs(); setSync();
   const back=['watch','team','prof','guide','admin','gjoin'].includes(view)?'<button class="back" data-tab="more">‹ Plus</button>':'';
   $('#main').innerHTML= back+(view==='today'?todayView(): view==='plan'?planView(): view==='more'?moreView(): view==='races'?racesView(): view==='guide'?guideView(): view==='team'?teamView(): view==='watch'?watchView(): view==='admin'?adminView(): view==='group'?groupView(): view==='gjoin'?joinView(): profPaged(profView()));
@@ -1097,12 +1097,12 @@ function profView(){
   const zones=[['Récupération',60,65],['Endurance fondamentale',65,75],['Endurance active',75,82],['Seuil',83,88],['VMA longue',90,95],['VMA courte',100,105]];
   const A=activeAth();
   return `<h2 class="cond" style="margin:8px 0 12px;font-size:26px;text-transform:uppercase">Profil de ${esc(A.name)}</h2>
-  <div class="card sec"><h3>Sportif</h3>${G.on&&!G.admin?`<p class="small" style="margin:0"><span class="adot" style="background:${A.color};display:inline-flex;width:22px;height:22px;font-size:12px;vertical-align:middle">${esc(A.name.slice(0,1).toUpperCase())}</span> <b>${esc(A.name)}</b> · prénom et couleur gérés par l'administrateur</p>`:`<label class="f">Prénom</label><input class="inp" data-aname="1" value="${esc(A.name)}">
+  <div class="card sec"><h3>Sportif</h3>${G.on&&!ADM()?`<p class="small" style="margin:0"><span class="adot" style="background:${A.color};display:inline-flex;width:22px;height:22px;font-size:12px;vertical-align:middle">${esc(A.name.slice(0,1).toUpperCase())}</span> <b>${esc(A.name)}</b> · prénom et couleur gérés par l'administrateur</p>`:`<label class="f">Prénom</label><input class="inp" data-aname="1" value="${esc(A.name)}">
   <label class="f">Couleur</label><div class="row" style="flex-wrap:wrap;gap:8px">${COLORS.map(c=>`<button class="cdot ${A.color===c?'on':''}" style="background:${c}" data-acol="${c}" aria-label="Couleur"></button>`).join('')}</div>`}
   <label class="f">Niveau</label><div class="pills">${[['debutant','Débutant'],['confirme','Confirmé'],['expert','Expert']].map(([k,l])=>`<button class="${(P.level||'confirme')===k?'on':''}" data-lvl="${k}">${l}</button>`).join('')}</div>
   <p class="hint">${{debutant:'Débutant : 1 séance de qualité par semaine en foncier, répétitions −25 %, sorties longues −20 %, 3 séances max, allègement toutes les 3 semaines.',confirme:'Confirmé : programme standard.',expert:'Expert : répétitions +20 %, sorties longues +10 %, une séance de plus en développement et en spécifique (dans la limite de tes disponibilités).'}[P.level||'confirme']}</p>
   <div style="margin-top:12px" class="row"><button class="btn ghost sm" id="refreeze">Recalculer les semaines passées</button></div><p class="hint">Les semaines terminées sont figées 🔒 : changer une course ou ta VMA ne modifie que la semaine en cours et la suite. Ce bouton les recalcule avec les réglages actuels (les coches peuvent se perdre).</p>
-  ${MULTI()&&(!G.on||G.admin)?'<div style="margin-top:12px"><button class="btn ghost sm danger" id="adel">Supprimer ce sportif</button></div>':''}
+  ${MULTI()&&(!G.on||ADM())?'<div style="margin-top:12px"><button class="btn ghost sm danger" id="adel">Supprimer ce sportif</button></div>':''}
   <div style="margin-top:10px"><button class="btn ghost sm" data-wzopen="1">Assistant de démarrage (VMA, jours, course)</button></div>
   <div class="toggle" style="margin-top:10px"><span class="small">Séances club communes : quand d'autres sportifs ont une séance de qualité le même jour, la même séance pour tous (allures et répétitions de chacun)</span><button class="sw ${P.noClub?'':'on'}" data-tog="noClub" aria-label="Séances club"></button></div></div>
   <div class="card sec"><h3>VMA</h3><div class="stepper"><button data-vma="1" aria-label="Plus lent">−</button><input class="big" data-p="vma" value="${fmtPaceSec(3600/P.vma)}"><button data-vma="-1" aria-label="Plus rapide">+</button><span class="mut">/km<br><small>${v1(P.vma)} km/h</small></span></div>
@@ -1158,7 +1158,7 @@ let pendingRestore=null;
 document.addEventListener('click',async e=>{
   const P=S?S.profile:null; let t;
   if(t=e.target.closest('[data-tab]')){ view=t.dataset.tab; if(t.dataset.close) closeModal(); render(); window.scrollTo(0,0); return; }
-  if(e.target.closest('#who')){ if(GATE) return; if(G.on&&!G.admin){ view='group'; render(); window.scrollTo(0,0); return; } whoSheet(); return; }
+  if(e.target.closest('#who')){ if(GATE) return; if(G.on&&!ADM()){ view='group'; render(); window.scrollTo(0,0); return; } whoSheet(); return; }
   if(await groupClick(e)) return;
   if(t=e.target.closest('[data-goath]')){ switchAth(t.dataset.goath); view='plan'; render(); window.scrollTo(0,0); return; }
   if(t=e.target.closest('[data-swath]')){ switchAth(t.dataset.swath); closeModal(); render(); toast('Programme de '+activeAth().name); return; }
@@ -1283,7 +1283,7 @@ function chgSheet(key){
 }
 
 /* ---------- sportifs ---------- */
-function renderWho(){ if(GATE||!ROOT){ $('#who').innerHTML=''; return; } const p=activeAth(); $('#who').innerHTML=`<i style="background:${p.color}"></i>${esc(p.name)}${G.on&&!G.admin?'':' ▾'}`; }
+function renderWho(){ if(GATE||!ROOT){ $('#who').innerHTML=''; return; } const p=activeAth(); $('#who').innerHTML=`<i style="background:${p.color}"></i>${esc(p.name)}${G.on&&!ADM()?'':' ▾'}`; }
 function nextSession(pid){ const e=engineFor(pid,true); const now=new Date(); now.setHours(0,0,0,0);
   for(let i=0;i<21;i++){ const d=addDays(now,i), W=e.buildWeek(mondayOf(d)), ss=W.days[wd(d)].filter(s=>s.cat!=='off'); if(ss.length) return {d,ss}; } return null; }
 function teamView(){
@@ -1696,9 +1696,9 @@ function todayView(){
 /* ---- vue Plus ---- */
 function moreView(){
   const it=[['export','Exporter','Programme en PDF ou dans le Calendrier (1 à 4 mois)'],['watch','Montre','Créer une séance pour Apple Watch ou Garmin']];
-  if(G.on&&G.admin) it.unshift(['admin','Console admin','Sportifs, liens personnels, sauvegarde du club']);
-  if(!G.on||G.admin) it.push(['team','Sportifs','Profils, binômes, changer de sportif']);
-  it.push(['prof','Profil','VMA, cardio, natation, disponibilités'+(G.on&&!G.admin?'':', sauvegarde')],['guide','Guide','Mode d\'emploi et fichiers montre']);
+  if(G.on&&ADM()) it.unshift(['admin','Console admin','Sportifs, liens personnels, sauvegarde du club']);
+  if(!G.on||ADM()) it.push(['team','Sportifs','Profils, binômes, changer de sportif']);
+  it.push(['prof','Profil','VMA, cardio, natation, disponibilités'+(G.on&&!ADM()?'':', sauvegarde')],['guide','Guide','Mode d\'emploi et fichiers montre']);
   if(!G.on&&GROUP_OK) it.push(['gjoin','Rejoindre le groupe','Coller mon lien personnel ou accès administrateur']);
   return `<h2 class="cond" style="margin:8px 0 12px;font-size:26px;text-transform:uppercase">Plus</h2><div class="morelist">${it.map(([k,l,d])=>`<button ${k==='export'?'data-pdfdlg="1"':'data-tab="'+k+'"'}>${ICON[k]||ICON.plan}<div><b>${l}</b><span>${d}</span></div></button>`).join('')}</div>`; }
 
@@ -2013,7 +2013,7 @@ const FB={"cfg": {"apiKey": "AIzaSyChsQVNzBsfH3DR3T4QvOkIsj28PPdoTjc", "authDoma
 const FBV='10.14.1';
 const GROUP_OK=!!(STANDALONE&&FB&&FB.cfg&&FB.admin&&/^https?:/.test(location.protocol));
 let GATE=false;
-const G={on:false,admin:false,me:null,key:null,state:'off',F:null,db:null,auth:null,email:'',
+const G={on:false,admin:false,preview:null,me:null,key:null,state:'off',F:null,db:null,auth:null,email:'',
   full:{},pubs:{},last:{},lastMeta:{},lastPub:{},known:{},deleted:{},rekey:{},club:{},meta:{},needRender:false,claimed:false};
 const lsGet=k=>{ try{ return localStorage.getItem(k); }catch(e){ return null; } };
 const lsSet=(k,v)=>{ try{ if(v==null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){} };
@@ -2129,12 +2129,12 @@ function joinView(){ return `<h2 class="cond" style="margin:8px 0 12px;font-size
 
 /* ---- carte Sauvegarde dans Profil ---- */
 function gSaveCard(){
-  if(G.admin) return `<div class="card sec"><h3>Sauvegarde</h3><p class="small" style="margin:0 0 8px">Données du club synchronisées en ligne${ROOT.savedAt?' · dernier enregistrement '+when(ROOT.savedAt):''}. Copie de secours sur cet appareil (fonctionne hors ligne).</p><button class="btn sm" data-tab="admin">Sauvegarde du club (console admin)</button></div>`;
+  if(ADM()) return `<div class="card sec"><h3>Sauvegarde</h3><p class="small" style="margin:0 0 8px">Données du club synchronisées en ligne${ROOT.savedAt?' · dernier enregistrement '+when(ROOT.savedAt):''}. Copie de secours sur cet appareil (fonctionne hors ligne).</p><button class="btn sm" data-tab="admin">Sauvegarde du club (console admin)</button></div>`;
   const me=activeAth();
   return `<div class="card sec"><h3>Mes données</h3><p class="small" style="margin:0 0 8px">Enregistrées dans le groupe${ROOT.savedAt?' · dernier enregistrement '+when(ROOT.savedAt):''}, avec une copie sur cet appareil : l'appli fonctionne même sans réseau. Les sauvegardes du club sont faites par l'administrateur.</p>
   <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-gact="myback">Télécharger ma sauvegarde</button><button class="btn ghost sm" data-gact="mylink">Copier mon lien personnel</button></div>
   <p class="hint">Ton lien personnel ouvre ton programme sur un autre appareil (téléphone, ordinateur). Ne le partage pas : il permet de modifier ton programme.</p>
-  <div style="margin-top:8px"><button class="btn ghost sm danger" data-gact="leave">Déconnecter cet appareil</button></div></div>`;
+  ${G.preview?'':'<div style="margin-top:8px"><button class="btn ghost sm danger" data-gact="leave">Déconnecter cet appareil</button></div>'}</div>`;
 }
 
 /* ---- console admin ---- */
@@ -2145,7 +2145,7 @@ function adminView(){
   h+=`<div class="sectitle">Sportifs (${L.length}/${MAXATH})</div><div class="list">`;
   for(const p of L){ const up=G.meta&&G.meta[p.id];
     h+=`<div class="card admrow"><div class="row"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="small mut">${up?'Modifié '+when(up):'—'}${p.id===ROOT.active?' · affiché':''}</div></div></div>
-      <div class="row" style="flex-wrap:wrap;margin-top:10px;gap:6px"><button class="btn sm" data-glink="${p.id}">Envoyer le lien</button><button class="btn ghost sm" data-gcopy="${p.id}">Copier</button><button class="btn ghost sm" data-goath="${p.id}">Programme</button><button class="btn ghost sm" data-gregen="${p.id}">Nouveau lien</button></div></div>`; }
+      <div class="row" style="flex-wrap:wrap;margin-top:10px;gap:6px"><button class="btn sm" data-glink="${p.id}">Envoyer le lien</button><button class="btn ghost sm" data-gcopy="${p.id}">Copier</button><button class="btn ghost sm" data-gview="${p.id}">Voir comme</button><button class="btn ghost sm" data-goath="${p.id}">Programme</button><button class="btn ghost sm" data-gregen="${p.id}">Nouveau lien</button></div></div>`; }
   h+=`</div><p class="hint">« Envoyer le lien » ouvre le partage (SMS, mail…). Chaque lien ouvre le programme d'un seul sportif. « Nouveau lien » rend l'ancien inutilisable (lien perdu ou transmis par erreur). Pour modifier le profil ou les courses d'un sportif : « Programme », puis Plus › Profil ou Courses.</p>
   <div class="card sec"><h3>Sauvegarde du club</h3><p class="small" style="margin:0 0 8px">Dernière sauvegarde : <b>${lb?when(lb)+' ('+new Date(lb).toLocaleDateString('fr-FR')+')':'jamais'}</b></p>
   <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-gact="export">Télécharger la sauvegarde du club</button><label class="btn ghost sm" style="display:inline-block">Importer / restaurer<input type="file" id="gimpfile" accept=".json,.html,application/json,text/html" hidden></label>${lsHad()?'<button class="btn ghost sm" data-gact="implocal">Importer les profils de cet appareil</button>':''}</div>
@@ -2227,7 +2227,8 @@ function gAssemble(){
   const profs=Object.values(G.full).filter(p=>!G.deleted[p.id]);
   if(!G.admin) for(const [id,pb] of Object.entries(G.pubs)) if(!G.full[id]) profs.push(pubProfile(id,pb));
   profs.sort((a,b)=>(a.ro?1:0)-(b.ro?1:0)||String(a.name).localeCompare(String(b.name),'fr'));
-  ROOT={profiles:profs,active:G.admin?(prevA||lsGet('coach-admin-active')):G.me,savedAt,lastBackup:null,settings};
+  if(G.admin) profs.forEach(p=>{ p.ro=!!G.preview&&p.id!==G.preview; });
+  ROOT={profiles:profs,active:G.preview||(G.admin?(prevA||lsGet('coach-admin-active')):G.me),savedAt,lastBackup:null,settings};
   const a=ath(ROOT.active); if(!a||a.ro) ROOT.active=(profs.find(p=>!p.ro)||{}).id; }
 function gCache(){ try{ lsSet(gCacheKey(),JSON.stringify({full:Object.values(G.full).map(p=>({id:p.id,key:p.key,name:p.name,color:p.color,data:p.data})),pubs:G.pubs,me:G.me,known:G.known,club:G.club,meta:G.meta,settings:ROOT&&ROOT.settings,active:ROOT&&ROOT.active,savedAt:ROOT&&ROOT.savedAt})); if(G.admin&&ROOT) lsSet('coach-admin-active',ROOT.active); }catch(e){} }
 function gFromCache(c){ if(!c) return; (c.full||[]).forEach(p=>{ G.full[p.id]={id:p.id,key:p.key,name:p.name,color:p.color,data:mergeAth(p.data)}; });
@@ -2395,7 +2396,7 @@ document.addEventListener('click',e=>{ const t=e.target.closest('[data-ptab]'); 
 
 /* ===================== assistant de démarrage ===================== */
 let WZ=null;
-function needsOnboard(){ return !!(G.on&&!G.admin&&S&&!GATE&&!S.profile.onboarded&&+S.profile.vma===13.5&&!(S.races||[]).length&&!WZ&&!sessionStorage.getItem('coach-wz-later')); }
+function needsOnboard(){ return !!(G.on&&!ADM()&&S&&!GATE&&!S.profile.onboarded&&+S.profile.vma===13.5&&!(S.races||[]).length&&!WZ&&!sessionStorage.getItem('coach-wz-later')); }
 function wzStart(){ const P=S.profile; WZ={step:0,mode:'race',pace:fmtPaceSec(3600/P.vma),dist:'10',time:'',lvl:P.level||'confirme',age:P.age||'',sex:P.sex||'',fcmax:P.fcmax||'',fcrepos:P.fcrepos||'',
   avail:JSON.parse(JSON.stringify(P.avail)),lrDay:P.lrDay,wmax:+P.weekdayMax||0,race:{name:'',date:'',type:'route',km:'',goal:''}}; modalKind='wiz'; wzDraw(); $('#modal').classList.add('show'); }
 function wzVma(){ if(WZ.mode==='pace'){ const s=parseHMS(WZ.pace); return s&&s>150&&s<600?3600/s:null; }
@@ -2449,7 +2450,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261112173613';
+const BUILD='20261112174443';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2463,6 +2464,16 @@ if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   window.addEventListener('pageshow',e=>{ if(e.persisted) setTimeout(check,800); });
   setInterval(check,20*60000);
 }
+
+/* ===================== admin : « Voir comme » ===================== */
+function ADM(){ return G.admin&&!G.preview; }
+function pvBar(){ let el=document.getElementById('pvbar'); if(!G.preview){ if(el) el.style.display='none'; return; }
+  if(!el){ el=document.createElement('div'); el.id='pvbar'; el.className='sabar'; document.body.prepend(el); }
+  const p=ath(G.preview); el.innerHTML=`<span>👁 Aperçu : ce que voit <b>${esc(p?p.name:'')}</b> · les modifications sont enregistrées</span><button data-gview="">Quitter</button>`; el.style.display='flex'; }
+document.addEventListener('click',e=>{ const t=e.target.closest('[data-gview]'); if(!t) return; e.stopPropagation(); flush();
+  const id=t.dataset.gview||null; if(id&&!G.full[id]) return; if(id&&!G.preview) G.pvPrev=ROOT.active;
+  G.preview=id; gAssemble(); if(!id&&G.pvPrev&&ath(G.pvPrev)) ROOT.active=G.pvPrev; refresh(); open.clear(); closeModal(); view=id?'today':'admin'; render(); window.scrollTo(0,0);
+  if(id) toast('Vue de '+ath(id).name); },true);
 
 /* ---------- démarrage ---------- */
 (async()=>{ if(GROUP_OK&&gWanted()){ gStart(); return; }

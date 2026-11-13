@@ -2013,7 +2013,7 @@ const FB={"cfg": {"apiKey": "AIzaSyChsQVNzBsfH3DR3T4QvOkIsj28PPdoTjc", "authDoma
 const FBV='10.14.1';
 const GROUP_OK=!!(STANDALONE&&FB&&FB.cfg&&FB.admin&&/^https?:/.test(location.protocol));
 let GATE=false;
-const G={on:false,admin:false,preview:null,me:null,key:null,state:'off',F:null,db:null,auth:null,email:'',
+const G={on:false,admin:false,preview:null,srv:{},me:null,key:null,state:'off',F:null,db:null,auth:null,email:'',
   full:{},pubs:{},last:{},lastMeta:{},lastPub:{},known:{},deleted:{},rekey:{},club:{},meta:{},needRender:false,claimed:false};
 const lsGet=k=>{ try{ return localStorage.getItem(k); }catch(e){ return null; } };
 const lsSet=(k,v)=>{ try{ if(v==null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){} };
@@ -2115,7 +2115,7 @@ function gateView(){
   const box=x=>`<div class="gate"><h2 class="cond">Coach <span>Course</span></h2>${x}</div>`;
   if(GATE==='loading') return box(`<p class="mut">Connexion au club…</p>`);
   if(GATE==='offline') return box(`<p>Impossible de joindre le club : vérifie ta connexion internet puis réessaie.</p><button class="btn" data-gact="reload">Réessayer</button>`);
-  if(GATE==='revoked') return box(`<p><b>Ce lien n'est plus valable.</b></p><p class="small mut">Ton coach a peut-être créé un nouveau lien. Demande-le-lui, puis ouvre-le ou colle-le ici :</p>${pasteHTML()}`);
+  if(GATE==='revoked') return box(`<p><b>Programme introuvable pour ce lien.</b></p><p class="small mut">L'appli réessaie toute seule : si ton coach vient de créer ton profil, il apparaîtra dans quelques instants. Sinon, le lien a été remplacé ou mal copié : demande-le à nouveau, puis ouvre-le ou colle-le ici.</p><p class="small mut">Lien se terminant par <b>…${esc(String(G.key||'').slice(-5))}</b></p>${pasteHTML()}`);
   if(GATE==='login') return box(`<p class="small mut">Accès administrateur</p><label class="f">E-mail</label><input class="inp" id="gmail" type="email" autocomplete="username" value="${esc(G.email||'')}">
     <label class="f">Mot de passe</label><input class="inp" id="gpass" type="password" autocomplete="current-password"><div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="btn" data-gact="login">Se connecter</button><button class="btn ghost" data-gact="quitadmin">Annuler</button></div>`);
   if(GATE==='empty') return box(`<p><b>Bienvenue dans la console admin.</b></p><p class="small mut">Le club ne contient encore aucun sportif. Crée le premier (toi, par exemple) ou importe des profils existants.</p>
@@ -2146,7 +2146,7 @@ function adminView(){
   if(late) h+=`<div class="ev amb" style="margin-bottom:12px"><b>Sauvegarde du club ${lb?'de plus d\'un mois':'jamais faite'}</b>Télécharge une sauvegarde (en bas de page) et garde-la dans tes fichiers.</div>`;
   h+=`<div class="sectitle">Sportifs (${L.length}/${MAXATH})</div><div class="list">`;
   for(const p of L){ const up=G.meta&&G.meta[p.id];
-    h+=`<div class="card admrow"><div class="row"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="small mut">${up?'Modifié '+when(up):'—'}${p.id===ROOT.active?' · affiché':''}</div></div></div>
+    h+=`<div class="card admrow"><div class="row"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="small mut">${G.srv[p.id]===p.key?'<b style="color:var(--ev-att)">✓ Lien actif</b> · …'+esc(p.key.slice(-5)):'<b style="color:var(--ev-amb)">⏳ Enregistrement en cours…</b>'}${up?' · modifié '+when(up):''}</div></div></div>
       <div class="row" style="flex-wrap:wrap;margin-top:10px;gap:6px"><button class="btn sm" data-glink="${p.id}">Envoyer le lien</button><button class="btn ghost sm" data-gcopy="${p.id}">Copier</button><button class="btn ghost sm" data-gview="${p.id}">Voir comme</button><button class="btn ghost sm" data-goath="${p.id}">Programme</button><button class="btn ghost sm" data-gregen="${p.id}">Nouveau lien</button></div></div>`; }
   h+=`</div><p class="hint">« Envoyer le lien » ouvre le partage (SMS, mail…). Chaque lien ouvre le programme d'un seul sportif. « Nouveau lien » rend l'ancien inutilisable (lien perdu ou transmis par erreur). Pour modifier le profil ou les courses d'un sportif : « Programme », puis Plus › Profil ou Courses.</p>
   <div class="card sec"><h3>Sauvegarde du club</h3><p class="small" style="margin:0 0 8px">Dernière sauvegarde : <b>${lb?when(lb)+' ('+new Date(lb).toLocaleDateString('fr-FR')+')':'jamais'}</b></p>
@@ -2179,11 +2179,11 @@ async function groupClick(e){ let t;
     else if(a==='first'){ const nm=(($('#gfirst')||{}).value||'').trim(); if(!nm){ toast('Indique un prénom'); return true; }
       const p={id:'p'+Date.now(),name:nm,color:COLORS[0],data:mergeAth({})}; gMarkNew(p); GATE=false; gAssemble(); refresh(); lastCore=''; save(); view='prof'; render(); toast(nm+' créé·e : complète son profil'); }
     return true; }
-  if(t=e.target.closest('[data-glink]')){ const p=ath(t.dataset.glink); if(!p||!p.key){ toast('Lien en cours de création, réessaie'); return true; } flush();
+  if(t=e.target.closest('[data-glink]')){ const p=ath(t.dataset.glink); if(!p||!p.key||G.srv[p.id]!==p.key){ flush(); toast('Profil pas encore enregistré en ligne : attends « ✓ Lien actif » (connexion internet)'); return true; } flush();
     const url=gLink(p), txt=p.name+', voici ton lien personnel pour ton programme d\'entraînement. Ouvre-le puis ajoute-le à l\'écran d\'accueil. Garde-le pour toi.';
     if(navigator.share){ try{ await navigator.share({title:'Coach Course',text:txt,url}); }catch(err){ if(!(err&&err.name==='AbortError')) copyText(url,'Lien copié'); } } else copyText(url,'Lien de '+p.name+' copié');
     return true; }
-  if(t=e.target.closest('[data-gcopy]')){ const p=ath(t.dataset.gcopy); if(p&&p.key){ flush(); copyText(gLink(p),'Lien de '+p.name+' copié'); } return true; }
+  if(t=e.target.closest('[data-gcopy]')){ const p=ath(t.dataset.gcopy); if(p&&p.key){ flush(); copyText(gLink(p),G.srv[p.id]===p.key?'Lien de '+p.name+' copié':'Copié, mais pas encore enregistré en ligne : attends « ✓ Lien actif » avant de l\'envoyer'); } return true; }
   if(t=e.target.closest('[data-gregen]')){ const p=ath(t.dataset.gregen); if(!p) return true;
     if(!t.dataset.sure){ t.dataset.sure=1; t.textContent='Confirmer : l\'ancien lien ne marchera plus'; return true; }
     if(p.key&&G.known[p.id]) G.rekey[p.id]=p.key; p.key=rid(28); G.known[p.id]=p.key; lastCore=''; save(); render(); toast('Nouveau lien créé pour '+p.name+' : envoie-le-lui'); return true; }
@@ -2236,7 +2236,7 @@ function gCache(){ try{ lsSet(gCacheKey(),JSON.stringify({full:Object.values(G.f
 function gFromCache(c){ if(!c) return; (c.full||[]).forEach(p=>{ G.full[p.id]={id:p.id,key:p.key,name:p.name,color:p.color,data:mergeAth(p.data)}; });
   G.pubs=c.pubs||{}; G.me=c.me||null; G.known=c.known||{}; G.club=c.club||{}; G.meta=c.meta||{};
   ROOT={settings:c.settings||{coachView:true,noSwipe:false},active:c.active,savedAt:c.savedAt||null,profiles:[]}; gAssemble(); }
-function gReady(){ if(!editables().length){ GATE=G.admin?'empty':'loading'; return false; } if(GATE==='loading'||GATE==='empty') GATE=false; const ch=freezeAll(); refresh(); lastCore=core(); if(ch) save(); return true; }
+function gReady(){ if(!editables().length){ GATE=G.admin?'empty':(GATE==='revoked'?'revoked':'loading'); return false; } if(GATE==='loading'||GATE==='empty') GATE=false; const ch=freezeAll(); refresh(); lastCore=core(); if(ch) save(); return true; }
 function gRender(){ const ae=document.activeElement; if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)&&!GATE&&ae.type!=='file'){ G.needRender=true; return; } G.needRender=false; render(); }
 document.addEventListener('focusout',()=>{ if(G.needRender) setTimeout(()=>{ if(G.needRender) gRender(); },50); });
 function gApplyFull(id,key,d){ if(G.deleted[id]) return false; const js=typeof d.data==='string'?d.data:'{}'; let f=G.full[id], ch=false;
@@ -2283,20 +2283,21 @@ async function gLogin(){ const em=(($('#gmail')||{}).value||'').trim(), pw=($('#
 function gListenAdmin(){ const F=G.F, db=G.db; G.state='wait'; setSync();
   F.onSnapshot(F.doc(db,'club','meta'),s=>{ G.club=s.exists()?s.data():{}; },()=>{});
   F.onSnapshot(F.collection(db,'ath'),qs=>{ let ch=false; const seen=new Set();
-    qs.forEach(d=>{ const x=d.data(); if(!x||!x.pub) return; seen.add(x.pub); if(G.rekey[x.pub]&&d.id!==G.full[x.pub]?.key) return; G.known[x.pub]=d.id; if(gApplyFull(x.pub,d.id,x)) ch=true; });
+    qs.forEach(d=>{ const x=d.data(); if(!x||!x.pub) return; seen.add(x.pub); if(!qs.metadata.fromCache&&!(d.metadata&&d.metadata.hasPendingWrites)) G.srv[x.pub]=d.id; if(G.rekey[x.pub]&&d.id!==G.full[x.pub]?.key) return; G.known[x.pub]=d.id; if(gApplyFull(x.pub,d.id,x)) ch=true; });
     if(!qs.metadata.fromCache&&!qs.metadata.hasPendingWrites) for(const id of Object.keys(G.full)) if(!seen.has(id)&&G.known[id]){ delete G.full[id]; delete G.known[id]; ch=true; }
     if(!qs.metadata.fromCache&&!gInflight) G.state='ok';
-    if(ch||GATE){ gAssemble(); gReady(); gCache(); gRender(); } else setSync(); },
+    if(ch||GATE||view==='admin'){ gAssemble(); gReady(); gCache(); gRender(); } else setSync(); },
     err=>{ console.error(err); G.state='off'; if(err&&err.code==='permission-denied'){ GATE='login'; } render(); }); }
 function gListenUser(){ const F=G.F, db=G.db; G.state='wait'; setSync();
   const uid=G.auth.currentUser.uid; let pubUnsub=null;
   let tries=0;
   const listenPubs=()=>{ if(pubUnsub) pubUnsub(); pubUnsub=F.onSnapshot(F.collection(db,'pub'),qs=>{ tries=0; const P={}; qs.forEach(d=>P[d.id]=d.data()); G.pubs=P; gAssemble(); gReady(); gCache(); gRender(); },
     err=>{ console.warn('pub',err&&err.code); pubUnsub=null; tries++; if(tries>12) return; claimP.then(()=>setTimeout(listenPubs,Math.min(30000,800*tries)),()=>{}); }); };
-  const claimP=F.setDoc(F.doc(db,'claims',uid),{key:G.key,at:new Date().toISOString()}).then(()=>{ G.claimed=true; });
-  claimP.catch(err=>{ console.error(err); if(err&&err.code==='permission-denied'){ GATE='revoked'; lsSet('coach-key',null); render(); } });
+  // déclaration du lien : réessaie tant que la fiche n'existe pas encore sur le serveur
+  const claimP=new Promise(res=>{ let n=0; const tryClaim=()=>F.setDoc(F.doc(db,'claims',uid),{key:G.key,at:new Date().toISOString()}).then(()=>{ G.claimed=true; res(); },err=>{ console.warn('claim',err&&err.code); if(++n<120) setTimeout(tryClaim,Math.min(15000,2000*n)); }); tryClaim(); });
   F.onSnapshot(F.doc(db,'ath',G.key),snap=>{
-    if(!snap.exists()){ if(!snap.metadata.fromCache){ GATE='revoked'; lsSet('coach-key',null); lsSet(gCacheKey(),null); render(); } return; }
+    if(!snap.exists()){ if(!snap.metadata.fromCache){ if(Object.keys(G.full).length){ G.full={}; G.last={}; lsSet(gCacheKey(),null); } GATE='revoked'; render(); } return; } // on reste à l'écoute : la fiche peut arriver
+    if(GATE==='revoked') GATE='loading';
     if(snap.metadata.hasPendingWrites) return;
     const d=snap.data(); G.me=d.pub; const ch=gApplyFull(d.pub,G.key,d);
     if(!snap.metadata.fromCache&&!gInflight) G.state='ok';
@@ -2452,7 +2453,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261112201407';
+const BUILD='20261113085845';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

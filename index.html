@@ -2143,6 +2143,8 @@ function gSaveCard(){
 function adminView(){
   const L=editables(), lb=G.club.lastBackup, late=!lb||(Date.now()-new Date(lb))/864e5>30;
   let h=`<div class="row between" style="margin:8px 0 12px"><h2 class="cond" style="margin:0;font-size:26px;text-transform:uppercase">Console admin</h2><button class="btn" data-addath="1" ${L.length>=MAXATH?'disabled':''}>+ Sportif</button></div>`;
+  if(G.err||gInflight) h+=`<div class="ev ${G.err?'irr':'amb'}" style="margin-bottom:12px"><b>${G.err?'Problème de synchronisation':'Envoi en cours…'}</b>${G.err?esc(G.err.who?G.err.who+' : ':'')+'<code>'+esc(G.err.code||'')+'</code> '+esc(G.err.msg||'')+' <span class="small mut">('+when(G.err.at)+')</span>':'Des modifications attendent la réponse du serveur.'}
+    <div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-gact="resync">Renvoyer tout</button><button class="btn ghost sm" data-gact="repair">Réparer la synchro</button></div></div>`;
   if(late) h+=`<div class="ev amb" style="margin-bottom:12px"><b>Sauvegarde du club ${lb?'de plus d\'un mois':'jamais faite'}</b>Télécharge une sauvegarde (en bas de page) et garde-la dans tes fichiers.</div>`;
   h+=`<div class="sectitle">Sportifs (${L.length}/${MAXATH})</div><div class="list">`;
   for(const p of L){ const up=G.meta&&G.meta[p.id];
@@ -2174,6 +2176,8 @@ async function groupClick(e){ let t;
     else if(a==='mylink'){ const p=activeAth(); copyText(gLink(p),'Lien copié : colle-le dans Safari ou Chrome sur l\'autre appareil'); }
     else if(a==='myback'){ flush(); const p=activeAth(); await offerFile('coach-'+p.name.replace(/[^\wÀ-ÿ-]/g,'')+'-'+ymd(new Date())+'.json',JSON.stringify({app:'coach-course-swimrun',version:3,profiles:[{id:p.id,name:p.name,color:p.color,data:p.data}],active:p.id,savedAt:new Date().toISOString()},null,1)); }
     else if(a==='export'){ gExport(); }
+    else if(a==='resync'){ G.last={}; G.lastPub={}; G.lastMeta={}; G.err=null; gPushNow(); toast('Envoi de toutes les fiches…'); render(); }
+    else if(a==='repair'){ flush(); gCache(); try{ if(G.F&&G.db){ await G.F.terminate(G.db); if(G.F.clearIndexedDbPersistence) await G.F.clearIndexedDbPersistence(G.db).catch(()=>{}); } }catch(e){} toast('Redémarrage de la synchro…'); setTimeout(()=>location.reload(),600); }
     else if(a==='implocal'){ try{ gPrepImport(JSON.parse(lsGet('coach-state')),'Profils de cet appareil'); }catch(e){ toast('Aucune donnée locale lisible'); } }
     else if(a==='doimport'){ gDoImport(); }
     else if(a==='first'){ const nm=(($('#gfirst')||{}).value||'').trim(); if(!nm){ toast('Indique un prénom'); return true; }
@@ -2234,7 +2238,7 @@ function gAssemble(){
   const a=ath(ROOT.active); if(!a||a.ro) ROOT.active=(profs.find(p=>!p.ro)||{}).id; }
 function gCache(){ try{ lsSet(gCacheKey(),JSON.stringify({full:Object.values(G.full).map(p=>({id:p.id,key:p.key,name:p.name,color:p.color,data:p.data})),pubs:G.pubs,me:G.me,known:G.known,club:G.club,meta:G.meta,settings:ROOT&&ROOT.settings,active:ROOT&&ROOT.active,savedAt:ROOT&&ROOT.savedAt})); if(G.admin&&ROOT) lsSet('coach-admin-active',ROOT.active); }catch(e){} }
 function gFromCache(c){ if(!c) return; (c.full||[]).forEach(p=>{ G.full[p.id]={id:p.id,key:p.key,name:p.name,color:p.color,data:mergeAth(p.data)}; });
-  G.pubs=c.pubs||{}; G.me=c.me||null; G.known=c.known||{}; G.club=c.club||{}; G.meta=c.meta||{};
+  G.pubs=c.pubs||{}; G.me=c.me||null; G.known={}; G.club=c.club||{}; G.meta=c.meta||{};
   ROOT={settings:c.settings||{coachView:true,noSwipe:false},active:c.active,savedAt:c.savedAt||null,profiles:[]}; gAssemble(); }
 function gReady(){ if(!editables().length){ GATE=G.admin?'empty':(GATE==='revoked'?'revoked':'loading'); return false; } if(GATE==='loading'||GATE==='empty') GATE=false; const ch=freezeAll(); refresh(); lastCore=core(); if(ch) save(); return true; }
 function gRender(){ const ae=document.activeElement; if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)&&!GATE&&ae.type!=='file'){ G.needRender=true; return; } G.needRender=false; render(); }
@@ -2248,7 +2252,7 @@ function gApplyFull(id,key,d){ if(G.deleted[id]) return false; const js=typeof d
 let gPushT=null, gInflight=0;
 function gPush(){ if(!G.db) return; clearTimeout(gPushT); gPushT=setTimeout(gPushNow,100); }
 function gPushNow(){ const F=G.F, db=G.db; if(!F||!db||GATE) return; if(!G.admin&&!G.claimed){ clearTimeout(gPushT); gPushT=setTimeout(gPushNow,1500); return; } const now=new Date().toISOString(); const ops=[];
-  for(const p of editables()){
+  for(const p of editables()){ try{
     if(!p.key){ if(!G.admin) continue; gMarkNew(p); }
     if(G.admin) G.full[p.id]=p;
     const js=JSON.stringify(p.data), meta=p.name+'|'+p.color, pb=JSON.stringify(pubOf(p));
@@ -2258,10 +2262,10 @@ function gPushNow(){ const F=G.F, db=G.db; if(!F||!db||GATE) return; if(!G.admin
       const id=p.id; ops.push((G.admin?F.setDoc(F.doc(db,'ath',p.key),{pub:p.id,name:p.name,color:p.color,data:js,updatedAt:now}):F.updateDoc(F.doc(db,'ath',p.key),{data:js,updatedAt:now})).catch(err=>{ if(G.last[id]===js) G.last[id]=null; throw err; })); }
     if(G.lastPub[p.id]!==pb){ G.lastPub[p.id]=pb; const o=JSON.parse(pb); o.updatedAt=now; const id=p.id;
       ops.push((G.admin?F.setDoc(F.doc(db,'pub',p.id),o):F.updateDoc(F.doc(db,'pub',p.id),{races:o.races,eng:o.eng,blocks:o.blocks,updatedAt:now})).catch(err=>{ if(G.lastPub[id]===pb) G.lastPub[id]=null; throw err; })); }
-    if(G.admin) G.known[p.id]=G.known[p.id]||p.key; }
+    }catch(err){ gErr(err,p.name); G.last[p.id]=null; G.lastPub[p.id]=null; } }
   if(G.admin) for(const [id,key] of Object.entries(G.deleted)){ if(key) ops.push(F.deleteDoc(F.doc(db,'ath',key)),F.deleteDoc(F.doc(db,'pub',id))); delete G.known[id]; G.deleted[id]=null; }
   if(!ops.length) return; gCache(); gInflight++; G.state='pending'; setSync();
-  Promise.all(ops).then(()=>{ gInflight--; if(!gInflight){ G.state='ok'; setSync(); } }).catch(err=>{ gInflight--; console.error(err); G.state='off'; setSync();
+  Promise.all(ops).then(()=>{ gInflight--; if(!gInflight){ G.state='ok'; G.err=null; setSync(); if(view==='admin') gRender(); } }).catch(err=>{ gInflight--; gErr(err); G.state='off'; setSync();
     if(err&&err.code==='permission-denied') toast('Enregistrement refusé par le serveur'); clearTimeout(gPushT); gPushT=setTimeout(gPushNow,8000); }); }
 
 /* ---- connexion Firebase ---- */
@@ -2269,7 +2273,7 @@ async function fbLoad(){ if(window.__FBMOCK) return window.__FBMOCK; const B='ht
   const [a,au,fs]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]); return Object.assign({},a,au,fs); }
 async function gConnect(){
   const F=G.F=await fbLoad(); const app=F.initializeApp(FB.cfg);
-  try{ G.db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})}); }catch(e){ G.db=F.getFirestore(app); }
+  try{ G.db=F.initializeFirestore(app,G.admin&&F.memoryLocalCache?{localCache:F.memoryLocalCache()}:{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})}); }catch(e){ G.db=F.getFirestore(app); }
   G.auth=F.getAuth(app);
   const user=await new Promise(res=>{ const u=F.onAuthStateChanged(G.auth,x=>{ u(); res(x); }); });
   if(G.admin){ if(!user||user.isAnonymous||user.uid!==FB.admin){ GATE='login'; G.state='off'; render(); return; } G.email=user.email||''; return gListenAdmin(); }
@@ -2287,7 +2291,7 @@ function gListenAdmin(){ const F=G.F, db=G.db; G.state='wait'; setSync();
     if(!qs.metadata.fromCache&&!qs.metadata.hasPendingWrites) for(const id of Object.keys(G.full)) if(!seen.has(id)&&G.known[id]){ delete G.full[id]; delete G.known[id]; ch=true; }
     if(!qs.metadata.fromCache&&!gInflight) G.state='ok';
     if(ch||GATE||view==='admin'){ gAssemble(); gReady(); gCache(); gRender(); } else setSync(); },
-    err=>{ console.error(err); G.state='off'; if(err&&err.code==='permission-denied'){ GATE='login'; } render(); }); }
+    err=>{ gErr(err,'lecture'); G.state='off'; if(err&&err.code==='permission-denied'){ GATE='login'; } render(); }); }
 function gListenUser(){ const F=G.F, db=G.db; G.state='wait'; setSync();
   const uid=G.auth.currentUser.uid; let pubUnsub=null;
   let tries=0;
@@ -2453,7 +2457,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261113085845';
+const BUILD='20261113091526';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2505,6 +2509,9 @@ document.addEventListener('click',e=>{ let t;
   if(t=e.target.closest('[data-rjoin]')){ const st=CLUBR[+t.dataset.rjoin]; if(!st||!st.join) return; e.stopPropagation(); const r=st.join.r;
     if(!canEdit(st.join.p.id)) return; r.partner=ROOT.active; save(); closeModal(); render(); toast('Ajouté comme binôme de '+st.join.p.name); return; }
 },true);
+
+function gErr(err,who){ console.error(who||'',err); G.err={code:(err&&err.code)||'erreur',msg:String((err&&err.message)||err).slice(0,160),who:who||'',at:new Date().toISOString()};
+  if(G.err.code==='permission-denied') toast('Enregistrement refusé par le serveur'); else if(G.err.code==='resource-exhausted') toast('Quota Firebase du jour dépassé'); }
 
 /* ---------- démarrage ---------- */
 (async()=>{ if(GROUP_OK&&gWanted()){ gStart(); return; }

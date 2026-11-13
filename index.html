@@ -220,6 +220,13 @@ body.gated nav.tabs,body.gated #who{display:none}
 .hidl{font-size:12px;color:var(--mut);padding:4px 2px}.linkbtn{background:none;border:0;color:var(--run);font-weight:600;padding:0;font-size:inherit;text-decoration:underline;cursor:pointer}
 .dashwrap{padding:0;overflow-x:auto}.dash{border-collapse:collapse;font-size:13px;min-width:100%;white-space:nowrap}.dash th,.dash td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center}.dash th:first-child,.dash td:first-child{text-align:left;position:sticky;left:0;background:var(--card)}
 .dash th{font-size:11px;font-weight:600;color:var(--mut);cursor:pointer;white-space:normal;min-width:64px;vertical-align:bottom}.dash th.on{color:var(--ink)}.dash tr:last-child td{border-bottom:0}
+.actmenu{display:grid;gap:2px;margin:6px 0 4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px}.actmenu button,.mlist button,.mlist .mrow{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;padding:11px 10px;font-size:15px;color:var(--ink);text-align:left;border-radius:8px;cursor:pointer}
+.actmenu button span,.mlist button span,.mlist .mrow span{width:22px;text-align:center}.actmenu button:active,.mlist button:active{background:var(--chip)}.actmenu .danger,.mlist .danger{color:var(--ev-irr)}.mlist{display:grid;gap:2px}
+.imppill{margin:0 0 12px}.imppill summary{list-style:none;display:inline-block;background:var(--chip);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer}.imppill summary::-webkit-details-marker{display:none}
+.admrow2{display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;cursor:pointer;color:var(--ink);font:inherit}
+.toast{display:none;align-items:center;gap:12px}.tundo{background:none;border:0;color:var(--run);font-weight:700;font-size:14px;padding:0 2px;cursor:pointer}
+#main.compact .srow .schema,#main.compact .srow .t>span,#main.compact .clubchip,#main.compact .ghostrow>.t>span{display:none}#main.compact .srow{padding:5px 8px}#main.compact .day{padding:4px 0}#main.compact .srow .chk{width:30px;height:30px}#main.compact .ghostrow{margin-top:3px}
+@media(max-width:600px){.sync[data-short]::after{content:attr(data-short);font-size:12px;font-weight:600}.sync.cloud[data-short]::after{color:var(--ok)}.sync.off[data-short]::after{color:var(--ev-irr)}.sync[data-short] i{display:none}}
 </style>
 </head>
 <body>
@@ -921,7 +928,7 @@ function myRaces(){ return racesFor(ROOT.active); }
 function when(iso){ if(!iso) return ''; const d=new Date(iso); const t=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); return ymd(d)===TODAY? t : d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' '+t; }
 function setSync(m){ if(m) mode=m; const el=$('#sync'); el.className='sync'+(mode==='cloud'?' cloud':'');
   const w=ROOT.savedAt?' · '+when(ROOT.savedAt):'';
-  if(G.on){ el.className='sync'+(G.state==='ok'?' cloud':''); el.querySelector('span').textContent=(G.preview?'Aperçu':G.admin?'Admin':'Groupe')+' · '+(G.state==='ok'?'synchro'+w:G.state==='wait'?'connexion…':G.state==='pending'?'envoi…':'hors ligne'+w); el.title='Données partagées du club'; return; }
+  if(G.on){ el.className='sync'+(G.state==='ok'?' cloud':G.state==='off'?' off':' wait'); el.dataset.short=G.state==='ok'?'☁︎ ✓':G.state==='off'?'Hors ligne':'☁︎ …'; el.querySelector('span').textContent=(G.preview?'Aperçu':G.admin?'Admin':'Groupe')+' · '+(G.state==='ok'?'synchro'+w:G.state==='wait'?'connexion…':G.state==='pending'?'envoi…':'hors ligne'+w); el.title='Données partagées du club'; return; }
   el.querySelector('span').textContent= STANDALONE?'Autonome'+w: mode==='cloud'?'Synchro'+w : mode==='slow'?'Connexion…' : 'Local'+w; el.title=STANDALONE?'Version autonome : données dans ce navigateur':mode==='cloud'?'Sauvegardé et synchronisé sur ton compte':'Enregistré sur cet appareil'; }
 function save(){ refresh(); clearTimeout(saveT); saveT=setTimeout(flush,600); }
 function flush(){
@@ -948,7 +955,7 @@ async function initSync(){
     },()=>{ clearTimeout(tm); setSync('local'); });
   }catch(e){ setSync('local'); }
 }
-function toast(t){ const el=$('#toast'); el.textContent=t; el.style.display='block'; clearTimeout(el._t); el._t=setTimeout(()=>el.style.display='none',3200); }
+function toast(t,undo){ const el=$('#toast'); el.textContent=t; if(undo){ const b=document.createElement('button'); b.className='tundo'; b.textContent='Annuler'; b.onclick=ev=>{ ev.stopPropagation(); el.style.display='none'; undo(); }; el.appendChild(b); } el.style.display='flex'; clearTimeout(el._t); el._t=setTimeout(()=>el.style.display='none',undo?4500:2200); }
 const STANDALONE=(typeof claude==='undefined'||!claude.use);
 function directDownload(name,data){ try{ const blob=data instanceof Blob?data:new Blob([data]); const u=URL.createObjectURL(blob); const el=document.createElement('a'); el.href=u; el.download=name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000); return true; }catch(e){ return false; } }
 async function offerFile(name,data){
@@ -968,7 +975,7 @@ function renderTabs(){
 function render(){
   if(GATE){ document.body.classList.add('gated'); $('#main').innerHTML=gateView(); setSync(); renderWho(); return; } document.body.classList.remove('gated');
   if((view==='admin'||view==='dash')&&!(G.on&&ADM())) view='more'; if(view==='team'&&G.on&&!ADM()) view='group'; pvBar();
-  renderTabs(); setSync();
+  renderTabs(); setSync(); $('#main').classList.toggle('compact',view==='plan'&&!!(ROOT.settings&&ROOT.settings.compact));
   const back=['watch','team','prof','guide','admin','gjoin','dash'].includes(view)?'<button class="back" data-tab="more">‹ Plus</button>':'';
   $('#main').innerHTML= back+(view==='today'?todayView(): view==='plan'?planView(): view==='more'?moreView(): view==='races'?racesView(): view==='guide'?guideView(): view==='team'?teamView(): view==='watch'?watchView(): view==='admin'?adminView(): view==='dash'?dashView(): view==='group'?groupView(): view==='gjoin'?joinView(): profPaged(profView()));
   renderWho(); if(modalKind==='fiche') drawFiche();
@@ -995,7 +1002,7 @@ function planView(){
   if(fat&&thisW.phase!=='Assimilation') h+=`<div class="alert"><b>Ça tire un peu.</b> Tes dernières séances ont été notées dures (moyenne ${v1(fat.avg)}/5). Une semaine allégée t'aidera à assimiler.<div style="margin-top:8px"><button class="btn sm" data-allege="1">Alléger cette semaine</button></div></div>`;
   h+=`<div class="ctx"><button class="vma" data-tab="prof"><b>${fmtPaceSec(3600/S.profile.vma)}</b><small>allure VMA /km<br>${v1(S.profile.vma)} km/h</small></button>
   <div><div class="small">${g?`Prochain objectif : <b>${esc(g.name)}</b> <span class="chip">${g.prio}</span><br><span class="mut">${parseD(g.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} · dans ${Math.max(0,weeksBetween(mondayOf(new Date()),mondayOf(parseD(g.date))))} sem.</span>`:'<span class="mut">Aucune course au calendrier : cycle foncier. Ajoute tes courses pour une préparation ciblée.</span>'}</div>
-  <div style="margin-top:6px" class="row"><span class="chip ph-${thisW.phase.split(' ')[0]}">Cette semaine : ${thisW.phase}</span><button class="btn sm" data-pdfdlg="1">Exporter PDF</button></div></div></div>`+planBarHTML();
+  <div style="margin-top:6px" class="row"><span class="chip ph-${thisW.phase.split(' ')[0]}">Cette semaine : ${thisW.phase}</span><button class="btn sm" data-planmenu="1" aria-label="Plus d'actions">⋯</button></div></div></div>`+planBarHTML();
   const thisMon=mondayOf(new Date()), isCurMonth=cur.getFullYear()===new Date().getFullYear()&&cur.getMonth()===new Date().getMonth();
   const allW=monthWeeks(cur), hidden=isCurMonth&&!showPastWeeks?allW.filter(ws=>ws<thisMon).length:0;
   if(hidden) h+=`<button class="btn ghost sm" data-showpast="1" style="width:100%;margin-top:4px">↑ Voir ${hidden>1?'les '+hidden+' semaines précédentes':'la semaine précédente'} du mois</button>`;
@@ -1165,7 +1172,7 @@ document.addEventListener('click',async e=>{
   if(t=e.target.closest('[data-tab]')){ view=t.dataset.tab; if(t.dataset.close) closeModal(); render(); window.scrollTo(0,0); return; }
   if(e.target.closest('#who')){ if(GATE) return; if(G.on&&!ADM()){ view='group'; render(); window.scrollTo(0,0); return; } whoSheet(); return; }
   if(await groupClick(e)) return;
-  if(t=e.target.closest('[data-goath]')){ switchAth(t.dataset.goath); view='plan'; render(); window.scrollTo(0,0); return; }
+  if(t=e.target.closest('[data-goath]')){ switchAth(t.dataset.goath); closeModal(); view='plan'; render(); window.scrollTo(0,0); return; }
   if(t=e.target.closest('[data-swath]')){ switchAth(t.dataset.swath); closeModal(); render(); toast('Programme de '+activeAth().name); return; }
   if(e.target.closest('[data-addath]')){ athForm(); return; }
   if(modalKind==='ath'){
@@ -1181,7 +1188,7 @@ document.addEventListener('click',async e=>{
   if(e.target.closest('[data-showpast]')){ showPastWeeks=true; render(); return; }
   if(t=e.target.closest('[data-done]')){ const k=t.dataset.done; if(S.done[k]) delete S.done[k]; else { S.done[k]=1; open.add(k); } save(); render(); return; }
   if(t=e.target.closest('[data-mv]')){ const key=t.dataset.key, orig=key.split('|')[0], target=ymd(addDays(parseD(t.dataset.ws),+t.dataset.mv));
-    if(target===orig) delete S.moves[key]; else S.moves[key]=target; save(); render(); toast(target===orig?'Séance remise à sa place':'Séance déplacée au '+parseD(target).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric'})); return; }
+    const prevMv=S.moves[key]; if(target===orig) delete S.moves[key]; else S.moves[key]=target; save(); render(); toast(target===orig?'Séance remise à sa place':'Séance déplacée au '+parseD(target).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric'}),()=>{ if(prevMv) S.moves[key]=prevMv; else delete S.moves[key]; save(); render(); }); return; }
   if(t=e.target.closest('[data-feel]')){ const k=t.dataset.key; S.feel[k]=Object.assign({},S.feel[k],{r:+t.dataset.feel}); save(); render(); return; }
   if(e.target.closest('[data-allege]')){ const m=mondayOf(new Date()); S.blocks.push({id:Date.now(),kind:'allege',from:ymd(m),to:ymd(addDays(m,6)),note:'Fatigue ressentie'}); save(); render(); toast('Semaine allégée'); return; }
   if(e.target.closest('[data-pdfdlg]')){ pdfDialog(); return; }
@@ -1616,7 +1623,7 @@ const SA=(()=>{
 
 /* ===== Interface v2 : Aujourd'hui, fiche séance, schéma, ruban, balayage ===== */
 const SESSWS={}, SESSDK={};
-const TAGOF=s=>({run:s.type,swim:'Natation · '+s.type,renfo:'Renforcement',race:'Compétition',off:'Pause'}[s.cat]||'');
+const TAGOF=s=>({run:s.type,swim:'Natation · '+s.type,renfo:'Renforcement',race:'Compétition',off:'Pause'}[s.cat]||'')+(s.imported?' · 📄 '+(s.by||''):'');
 function intensOf(st){ const V=S.profile.vma;
   if(st.pace){ const pct=3600/st.pace/V*100; return pct>=97?4:pct>=89?3:pct>=82?2:pct>=76?1:0; }
   if(st.hr){ const p=(st.hr[0]+st.hr[1])/2/EN.hrMax(); return p>=0.88?2:p>=0.83?1:0; }
@@ -1648,10 +1655,9 @@ function sessRow(ws,dk,s){ reg(ws,dk,s); const key=s.key, done=!!S.done[key], fe
 
 /* ---- actions principales ---- */
 function actsHTML(s){ const key=esc(s.key), done=!!S.done[s.key];
-  const third=s.alts?`<button data-chg="${key}"><span class="ic">↻</span>Changer</button>`:s.wk?`<button data-tow="${key}"><span class="ic">✎</span>Modifier</button>`:`<button data-fiche="${key}"><span class="ic">☰</span>Détail</button>`;
   const canReal=s.cat!=='race'&&s.cat!=='off';
-  return `<div class="acts${canReal?' a4':''}"><button class="${done?'on':''}" data-done="${key}"><span class="ic">✓</span>${done?'Faite':'Fait'}</button>
-    ${s.wk?`<button data-fw="${key}"><span class="ic">⌚</span>Montre</button>`:`<button data-calopen="${key}"><span class="ic">📅</span>Agenda</button>`}${third}${canReal?`<button class="${s.real?'on2':''}" data-realopen="${key}"><span class="ic">✎</span>${s.real?'Réalisé ✓':'Réalisé'}</button>`:''}</div>
+  return `<div class="acts a4"><button class="${done?'on':''}" data-done="${key}"><span class="ic">✓</span>${done?'Faite':'Fait'}</button>
+    ${s.wk?`<button data-fw="${key}"><span class="ic">⌚</span>Montre</button>`:`<button data-calopen="${key}"><span class="ic">📅</span>Agenda</button>`}${canReal?`<button class="${s.real?'on2':''}" data-realopen="${key}"><span class="ic">✎</span>${s.real?'Réalisé ✓':'Réalisé'}</button>`:`<button data-fiche="${key}"><span class="ic">☰</span>Détail</button>`}<button data-more="${key}" aria-label="Autres actions"><span class="ic" style="font-size:20px;line-height:18px">⋯</span>Plus</button></div><div class="actmenu" hidden></div>
     ${s.wk?`<div class="fwbox" data-fwbox="${key}" style="display:none;margin-top:8px"><div class="row"><button class="btn sm" data-wx="apple" data-key="${key}">Apple Watch</button><button class="btn sm" data-wx="garmin" data-key="${key}">Garmin</button>${s.alts?`<button class="btn ghost sm" data-tow="${key}">✎ Modifier</button>`:''}</div><p class="hint">Allure ± 10 s/km. ${STANDALONE?'':'Depuis Claude, le fichier arrive dans un .zip à ouvrir dans Fichiers. '}<button class="linkbtn" data-howto="1">Comment faire ?</button></p></div>`:''}`; }
 
 /* ---- carte héros (Aujourd'hui) ---- */
@@ -1721,8 +1727,8 @@ function drawFiche(){ const s=SESS[ficheKey]; if(!s){ closeModal(); return; } co
     ${s.ghost?ghostActs(s,dk):s.cat==='off'?'':actsHTML(s)}${done&&s.cat!=='race'&&s.cat!=='off'&&!s.ghost?feelHTML(s):''}
     <details class="fd" open><summary>Détail complet de la séance</summary><div class="in">${s.blocks.map(b=>`<h4>${esc(b.h)}</h4><ul>${b.l.map(x=>`<li${/^Repère/.test(x)?' class="ref"':''}>${rich(x)}</li>`).join('')}</ul>`).join('')}</div></details>`;
   if(s.ghost){ $('#sheet').innerHTML=h; return; }
-  if(s.cat!=='race'&&s.cat!=='off') h+=`<details class="fd"><summary>Déplacer${s.moved?' (déplacée)':''}</summary><div class="in"><div class="dchips">${DSHORT.map((dd,j)=>{ const x=addDays(ws,j), t=ymd(x); return `<button class="dchip ${t===dk?'on':''}" data-mv="${j}" data-key="${ek}" data-ws="${ymd(ws)}">${dd} ${x.getDate()}</button>`; }).join('')}</div><p class="hint">Dans la même semaine. Re-choisis le jour d'origine pour annuler.</p></div></details>`;
-  if(s.cat!=='off') h+=`<details class="fd"><summary>📅 Ajouter au calendrier</summary><div class="in"><div class="row" style="flex-wrap:wrap"><span class="small">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} à</span><input type="time" id="caltime" class="inp" style="width:120px" value="${calDefault(dk)}"><button class="btn sm" data-cal="${ek}">Ajouter</button></div>
+  if(s.cat!=='race'&&s.cat!=='off') h+=`<details class="fd" id="movebox"><summary>Déplacer${s.moved?' (déplacée)':''}</summary><div class="in"><div class="dchips">${DSHORT.map((dd,j)=>{ const x=addDays(ws,j), t=ymd(x); return `<button class="dchip ${t===dk?'on':''}" data-mv="${j}" data-key="${ek}" data-ws="${ymd(ws)}">${dd} ${x.getDate()}</button>`; }).join('')}</div><p class="hint">Dans la même semaine. Re-choisis le jour d'origine pour annuler.</p></div></details>`;
+  if(s.cat!=='off') h+=`<details class="fd" id="calbox"><summary>📅 Ajouter au calendrier</summary><div class="in"><div class="row" style="flex-wrap:wrap"><span class="small">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} à</span><input type="time" id="caltime" class="inp" style="width:120px" value="${calDefault(dk)}"><button class="btn sm" data-cal="${ek}">Ajouter</button></div>
     <p class="hint">${STANDALONE?'Le partage de l\'iPhone s\'ouvre : choisis <b>Mail</b> et envoie-toi le message. Dans l\'app Mail, touche la pièce jointe → « Ajouter au calendrier ».':'Le fichier .ics s\'ouvre dans le partage : choisis <b>Mail</b> et envoie-le-toi, puis touche la pièce jointe dans l\'app Mail → « Ajouter au calendrier ». (Si l\'appli te donne un .zip, ouvre-le dans Fichiers puis partage le .ics par Mail.)'} Durée : ${fmtMin(Math.max(15,s.dur||60))}.</p></div></details>`;
   h+=planAltHTML(s);
   if(s.cat!=='race'&&s.cat!=='off') h+=editHTML(s);
@@ -2158,10 +2164,11 @@ function adminView(){
   if(late) h+=`<div class="ev amb" style="margin-bottom:12px"><b>Sauvegarde du club ${lb?'de plus d\'un mois':'jamais faite'}</b>Télécharge une sauvegarde (en bas de page) et garde-la dans tes fichiers.</div>`;
   h+=`<button class="card morerow" data-tab="dash" style="width:100%;text-align:left;margin-bottom:12px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">📊</span><span style="flex:1"><b>Tableau de bord</b><br><span class="small mut">Connexions et fonctions utilisées par chacun</span></span><span class="mut">›</span></button>`;
   h+=`<div class="sectitle">Sportifs (${L.length}/${MAXATH})</div><div class="list">`;
-  for(const p of L){ const up=G.meta&&G.meta[p.id];
-    h+=`<div class="card admrow"><div class="row"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="small mut">${G.srv[p.id]===p.key?'<b style="color:var(--ev-att)">✓ Lien actif</b> · …'+esc(p.key.slice(-5)):'<b style="color:var(--ev-amb)">⏳ Enregistrement en cours…</b>'}${up?' · modifié '+when(up):''}</div></div></div>
-      <div class="row" style="flex-wrap:wrap;margin-top:10px;gap:6px"><button class="btn sm" data-glink="${p.id}">Envoyer le lien</button><button class="btn ghost sm" data-gcopy="${p.id}">Copier</button><button class="btn ghost sm" data-gview="${p.id}">Voir comme</button><button class="btn ghost sm" data-goath="${p.id}">Programme</button><button class="btn ghost sm" data-gregen="${p.id}">Nouveau lien</button></div></div>`; }
-  h+=`</div><p class="hint">« Envoyer le lien » ouvre le partage (SMS, mail…). Chaque lien ouvre le programme d'un seul sportif. « Nouveau lien » rend l'ancien inutilisable (lien perdu ou transmis par erreur). Pour modifier le profil ou les courses d'un sportif : « Programme », puis Plus › Profil ou Courses.</p>
+  const t0=ymd(new Date());
+  for(const p of L){ const ok=G.srv[p.id]===p.key; const seen=Object.entries(p.data.useLog||{}).filter(([k,v])=>v&&v.d).map(([k])=>k).sort().pop();
+    const sn=!seen?'jamais ouvert':seen===t0?'ouvert aujourd\'hui':'ouvert il y a '+Math.round((parseD(t0)-parseD(seen))/864e5)+' j';
+    h+=`<button class="card admrow2" data-gsheet="${p.id}"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><span style="flex:1;min-width:0;text-align:left"><b>${esc(p.name)}</b>${p.id===ROOT.active?' <span class="chip">affiché</span>':''}<br><span class="small">${ok?'<span style="color:var(--ev-att)">✓ lien actif</span>':'<span style="color:var(--ev-amb)">⏳ en cours d\'envoi</span>'} <span class="mut">· ${sn}</span></span></span><span class="mut" style="font-size:20px">⋯</span></button>`; }
+  h+=`</div><p class="hint">Touche un sportif pour ses actions : envoyer ou copier son lien, voir comme lui, ouvrir son programme, créer un nouveau lien. « Envoyer le lien » ouvre le partage (SMS, mail…). Chaque lien ouvre le programme d'un seul sportif. « Nouveau lien » rend l'ancien inutilisable (lien perdu ou transmis par erreur). Pour modifier le profil ou les courses d'un sportif : « Programme », puis Plus › Profil ou Courses.</p>
   <div class="card sec"><h3>Sauvegarde du club</h3><p class="small" style="margin:0 0 8px">Dernière sauvegarde : <b>${lb?when(lb)+' ('+new Date(lb).toLocaleDateString('fr-FR')+')':'jamais'}</b></p>
   <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-gact="export">Télécharger la sauvegarde du club</button><label class="btn ghost sm" style="display:inline-block">Importer / restaurer<input type="file" id="gimpfile" accept=".json,.html,application/json,text/html" hidden></label>${lsHad()?'<button class="btn ghost sm" data-gact="implocal">Importer les profils de cet appareil</button>':''}</div>
   <div id="gimpbox"></div>
@@ -2468,7 +2475,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261113135140';
+const BUILD='20261113141112';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2562,6 +2569,37 @@ function dashView(){ if(!(G.on&&ADM())) return '<p>Réservé à l\'administrateu
 document.addEventListener('click',e=>{ let t;
   if(t=e.target.closest('[data-dashp]')){ DASHP=+t.dataset.dashp; render(); return; }
   if(t=e.target.closest('[data-dashs]')){ const k=t.dataset.dashs; if(DASHS===k) DASHD=-DASHD; else { DASHS=k; DASHD=k==='name'?1:-1; } render(); return; } });
+
+/* ===================== menus « ⋯ », vue compacte, synchro ===================== */
+function actMenuHTML(s){ const k=esc(s.key), it=[];
+  if(s.cat!=='race'&&s.cat!=='off') it.push(['✎','Modifier la séance',`data-mact="edit" data-key="${k}"`]);
+  if(s.alts) it.push(['↻','Changer de séance',`data-chg="${k}"`]);
+  if(s.wk) it.push(['⌚','Éditer pour la montre',`data-tow="${k}"`]);
+  if(s.cat!=='race'&&s.cat!=='off') it.push(['⇄','Déplacer',`data-mact="move" data-key="${k}"`]);
+  if(s.cat!=='off') it.push(['📅','Ajouter au calendrier',`data-mact="cal" data-key="${k}"`]);
+  if(s.cat!=='race'&&s.cat!=='off') it.push(['🗑','Supprimer la séance',`data-hide="${k}" class="danger"`]);
+  return it.map(([i,l,a])=>`<button ${a}><span>${i}</span>${l}</button>`).join(''); }
+document.addEventListener('click',e=>{ let t;
+  if(t=e.target.closest('[data-more]')){ e.stopPropagation(); const s=SESS[t.dataset.more]; if(!s) return; const m=t.closest('.acts').nextElementSibling; if(!m) return;
+    if(m.hidden){ m.innerHTML=actMenuHTML(s); m.hidden=false; } else m.hidden=true; return; }
+  if(t=e.target.closest('[data-mact]')){ e.stopPropagation(); const k=t.dataset.key, a=t.dataset.mact; if(modalKind!=='fiche'||ficheKey!==k) openFiche(k);
+    setTimeout(()=>{ const id=a==='edit'?'editbox':a==='move'?'movebox':'calbox'; const d=document.getElementById(id); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'start'}); } },80); return; }
+  if(t=e.target.closest('[data-planmenu]')){ e.stopPropagation(); modalKind='txt'; const c=!!(ROOT.settings&&ROOT.settings.compact);
+    $('#sheet').innerHTML=`<h3>Programme</h3><div class="mlist">
+      <button data-pdfdlg="1"><span>⬇︎</span>Exporter (PDF ou calendrier)</button>
+      <label class="mrow"><span>📄</span>Importer un plan (Word ou PDF)<input type="file" id="planfile" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></label>
+      <button data-compact="1"><span>☰</span>Vue compacte<b class="sw ${c?'on':''}" style="margin-left:auto"></b></button></div>
+      <p class="hint">Importer un plan : les séances de course du fichier remplacent celles de l'appli sur la période (Word ou PDF texte, avec les jours « Mardi 03 … »).</p>`;
+    $('#modal').classList.add('show'); return; }
+  if(t=e.target.closest('[data-compact]')){ ROOT.settings=ROOT.settings||{}; ROOT.settings.compact=!ROOT.settings.compact; save(); closeModal(); render(); return; }
+  if(t=e.target.closest('[data-gsheet]')){ const p=ath(t.dataset.gsheet); if(!p) return; modalKind='txt';
+    $('#sheet').innerHTML=`<h3><span class="adot" style="background:${p.color};display:inline-grid;width:26px;height:26px;font-size:13px;vertical-align:middle">${esc(p.name.slice(0,1).toUpperCase())}</span> ${esc(p.name)}</h3>
+      <p class="small mut" style="margin:0 0 10px">${G.srv[p.id]===p.key?'✓ Lien actif · …'+esc(p.key.slice(-5)):'⏳ Profil pas encore enregistré en ligne'}</p><div class="mlist">
+      <button data-glink="${p.id}"><span>✉︎</span>Envoyer le lien</button><button data-gcopy="${p.id}"><span>⧉</span>Copier le lien</button>
+      <button data-gview="${p.id}"><span>👁</span>Voir comme ${esc(p.name)}</button><button data-goath="${p.id}"><span>📅</span>Ouvrir son programme</button>
+      <button data-gregen="${p.id}" class="danger"><span>↻</span>Nouveau lien (l'ancien ne marchera plus)</button></div>`;
+    $('#modal').classList.add('show'); return; }
+},true);
 
 /* ===================== Import d'un plan (Word / PDF) ===================== */
 const PMONTHS=['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
@@ -2690,9 +2728,9 @@ const fD=s=>{ s=Math.round(s); return s>=3600?Math.floor(s/3600)+'h'+pad2(Math.r
 const fG=g=>g[0]==='dist'?(g[1]>=1000?String(g[1]/1000).replace('.',',')+' km':g[1]+' m'):fD(g[1]);
 function planSession(it,data,dk,idx){ const by=it.by||'moi', title='Séance '+by+(idx?' ('+(idx+1)+')':''); const P=it.p||{kind:'free'};
   const orig={h:'Texte du plan importé',l:[it.raw]};
-  const base={cat:'run',imported:true,impId:it.imp,raw:it.raw,title,orig:dk,key:dk+'|'+title};
+  const base={cat:'run',imported:true,impId:it.imp,raw:it.raw,title,by,orig:dk,key:dk+'|'+title}; // clé stable (compatible avec les coches déjà faites)
   if(P.kind==='easy'){ const pm=(P.p1+P.p2)/2, pace=plPace(data,pm);
-    return Object.assign(base,{type:P.label,sum:P.label+' '+fD(P.dur)+' · '+P.p1+'–'+P.p2+' % VMA · '+fmtPaceSec(plPace(data,P.p1))+'–'+fmtPaceSec(plPace(data,P.p2))+'/km',dur:Math.round(P.dur/60),
+    return Object.assign(base,{type:P.label,title:P.label+' '+fD(P.dur),sum:P.p1+'–'+P.p2+' % VMA · '+fmtPaceSec(plPace(data,P.p1))+'–'+fmtPaceSec(plPace(data,P.p2))+'/km',dur:Math.round(P.dur/60),
       wk:{warm:false,blocks:[{iter:1,steps:[{p:'work',g:['time',P.dur],pace}]}]},
       blocks:[{h:'Séance de '+by,l:[P.label+' '+fD(P.dur)+' à '+P.p1+'–'+P.p2+' % de ta VMA : '+fmtPaceSec(plPace(data,P.p1))+' à '+fmtPaceSec(plPace(data,P.p2))+'/km ‹'+v1(plSpeed(data,P.p1))+'–'+v1(plSpeed(data,P.p2))+' km/h›']},orig]}); }
   if(P.kind==='quality'){ const pm=(P.p1+P.p2)/2, pace=plPace(data,pm), sp=plSpeed(data,pm)/3.6, slow=plSpeed(data,60)/3.6;
@@ -2709,10 +2747,10 @@ function planSession(it,data,dk,idx){ const by=it.by||'moi', title='Séance '+by
     if(P.between) lines.push('Récupération entre les séries : '+fD(P.between));
     if(P.info&&P.info.length) lines.push('Repères du plan (pour la VMA de l\'auteur) : '+P.info.join(' · '));
     const short=(P.n>1?P.n+' × ':'')+(C.iter>1?C.iter+' × ':'')+(C.steps.filter(s=>s.p==='work').map(s=>fG(s.g)).join(' + '));
-    return Object.assign(base,{type:P.head,q:true,sum:P.head+' '+P.p1+(P.p2!==P.p1?'–'+P.p2:'')+' % · '+short,dur:Math.round(30+body),
+    return Object.assign(base,{type:P.head,q:true,title:P.head+' '+P.p1+(P.p2!==P.p1?'–'+P.p2:'')+' % · '+short,sum:fmtPaceSec(pace)+'/km · échauffement 20\' · retour au calme 10\'',dur:Math.round(30+body),
       wk:{warm:true,warmStep:{g:['open',0]},cool:true,coolStep:{g:['open',0]},blocks},
       blocks:[{h:'Échauffement',l:["20' footing en endurance (étape libre sur la montre)"]},{h:'Séance de '+by,l:lines},{h:'Retour au calme',l:["10' footing lent (étape libre sur la montre)"]},orig]}); }
-  return Object.assign(base,{type:'À vérifier',warn:true,sum:'⚠ à vérifier · '+it.raw.slice(0,60),dur:60,wk:null,blocks:[{h:'⚠ Séance à vérifier',l:['L\'appli n\'a pas su lire cette ligne : utilise « Modifier la séance prévue » pour la compléter.']},orig]}); }
+  return Object.assign(base,{type:'À vérifier',warn:true,title:'⚠ Séance à vérifier',sum:'⚠ à vérifier · '+it.raw.slice(0,60),dur:60,wk:null,blocks:[{h:'⚠ Séance à vérifier',l:['L\'appli n\'a pas su lire cette ligne : utilise « Modifier la séance prévue » pour la compléter.']},orig]}); }
 
 /* ---- insertion dans le programme ---- */
 function applyPlan(r,data,ws){ const imps=data.imports; if(!imps||!imps.length) return r; const P=data.plan||{}, U=data.useApp||{};
@@ -2739,7 +2777,7 @@ function dayExtras(ws,dk,i,W){ let h='';
   return h; }
 function ghostActs(s,dk){ return `<div class="ev att" style="margin:12px 0"><b>Suggestion de l'appli</b>${s.restDay?'Le plan importé prévoit du repos ce jour-là. ':'Le plan importé prévoit une autre séance ce jour-là. '}Tu peux faire celle-ci à la place.<div style="margin-top:8px"><button class="btn sm" data-useapp="${dk}">Faire la séance de l'appli à la place</button></div></div>`; }
 document.addEventListener('click',e=>{ let t;
-  if(t=e.target.closest('[data-hide]')){ if(!t.dataset.sure){ t.dataset.sure=1; t.textContent='Confirmer la suppression'; return; } S.hidden=S.hidden||{}; S.hidden[t.dataset.hide]=true; closeModal(); save(); render(); toast('Séance supprimée · « Rétablir » dans le Programme'); return; }
+  if(t=e.target.closest('[data-hide]')){ if(!t.dataset.sure){ t.dataset.sure=1; t.textContent='Confirmer la suppression'; return; } const hk=t.dataset.hide; S.hidden=S.hidden||{}; S.hidden[hk]=true; closeModal(); save(); render(); toast('Séance supprimée',()=>{ delete S.hidden[hk]; save(); render(); }); return; }
   if(t=e.target.closest('[data-unhide]')){ const dk=t.dataset.unhide; for(const k of Object.keys(S.hidden||{})) if(k.slice(0,10)===dk) delete S.hidden[k]; save(); render(); toast('Séance rétablie'); return; }
 });
 
@@ -2758,17 +2796,15 @@ async function planImport(file){ const by=activeAth().name; let R; logUse('impor
   let n=0, warn=0;
   for(const e of pl.ents){ const p=pParse(e.text); if(!p||p.kind==='rest') continue; (S.plan[e.date]=S.plan[e.date]||[]).push({imp:id,raw:pNorm(e.text),p,by}); n++; if(p.kind==='free') warn++; }
   S.imports.push({id,label:pl.label,file:file.name,by,at:new Date().toISOString(),from,to,n,warn});
-  save(); cur=new Date(parseD(from).getFullYear(),parseD(from).getMonth(),1); view='plan'; render(); window.scrollTo(0,0);
-  toast(n+' séance'+(n>1?'s':'')+' importée'+(n>1?'s':'')+(warn?' · '+warn+' à vérifier':'')+' ('+pl.label+')');
+  save(); cur=new Date(parseD(from).getFullYear(),parseD(from).getMonth(),1); view='plan'; closeModal(); render(); window.scrollTo(0,0);
+  toast(n+' séance'+(n>1?'s':'')+' importée'+(n>1?'s':'')+(warn?' · '+warn+' à vérifier':''),()=>planRemove(id));
   if(pl.coherent<0.8) setTimeout(()=>toast('Attention : jours et dates du fichier ne correspondent pas tous, vérifie le mois'),2600); }
 function planRemove(id){ const m=(S.imports||[]).find(x=>x.id===id); if(!m) return; S.imports=S.imports.filter(x=>x.id!==id);
   for(const [dk,L] of Object.entries(S.plan||{})){ const k=L.filter(x=>x.imp!==id); if(k.length) S.plan[dk]=k; else delete S.plan[dk]; }
   for(const dk of Object.keys(S.useApp||{})) if(dk>=m.from&&dk<=m.to) delete S.useApp[dk];
   save(); render(); toast('Import « '+m.label+' » retiré'); }
-function planBarHTML(){ const L=(S.imports||[]).slice().sort((a,b)=>a.from<b.from?-1:1);
-  return `<div class="card impbar"><div class="row between" style="gap:8px"><div class="small"><b>Plan importé</b><br><span class="mut">Word (.docx) ou PDF : les séances de course remplacent celles de l'appli</span></div>
-    <label class="btn sm" style="flex:none">Importer un plan<input type="file" id="planfile" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></label></div>
-    ${L.length?`<div style="margin-top:8px">${L.map(m=>`<div class="gline"><span class="tx" style="color:var(--ink)">📄 <b>${esc(m.label)}</b> · ${m.n} séance${m.n>1?'s':''}${m.warn?' · <span style="color:var(--ev-amb)">'+m.warn+' à vérifier</span>':''} <span class="mut">(${parseD(m.from).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} → ${parseD(m.to).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})})</span></span><button class="btn ghost sm" data-pldel="${m.id}">Retirer</button></div>`).join('')}</div>`:''}</div>`; }
+function planBarHTML(){ const L=(S.imports||[]).slice().sort((a,b)=>a.from<b.from?-1:1); if(!L.length) return '';
+  return `<details class="imppill"><summary>📄 ${L.map(m=>esc(m.label)).join(' · ')} ▾</summary><div class="card" style="padding:6px 12px;margin-top:6px">${L.map(m=>`<div class="gline"><span class="tx" style="color:var(--ink);white-space:normal"><b>${esc(m.label)}</b> · ${m.n} séance${m.n>1?'s':''}${m.warn?' · <span style="color:var(--ev-amb)">'+m.warn+' à vérifier</span>':''} <span class="mut">(${parseD(m.from).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} → ${parseD(m.to).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})})</span></span><button class="btn ghost sm" data-pldel="${m.id}">Retirer</button></div>`).join('')}</div></details>`; }
 function planAltHTML(s){ const dk=s.orig||String(s.key).slice(0,10);
   if(s.imported) return `<details class="fd"><summary>💡 Suggestion de l'appli pour ce jour</summary><div class="in">${s.appAlt&&s.appAlt.length?s.appAlt.map(a=>`<p class="small" style="margin:0 0 6px"><b>${esc(a.title)}</b><br><span class="mut">${rich(a.sum||'')}</span></p>`).join(''):'<p class="small mut">Pas de séance de course prévue par l\'appli ce jour-là.</p>'}
     ${s.appAlt&&s.appAlt.length?`<button class="btn sm" data-useapp="${dk}">Faire la séance de l'appli à la place</button>`:''}</div></details>`;

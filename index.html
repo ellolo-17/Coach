@@ -218,6 +218,8 @@ body.gated nav.tabs,body.gated #who{display:none}
 .impbar{margin:0 0 12px;padding:10px 12px}.impbar .gline .tx{white-space:normal}
 .ghostrow{opacity:.62;border-style:dashed!important;background:transparent!important;margin-top:6px}.ghostrow .tag{color:var(--mut)!important}
 .hidl{font-size:12px;color:var(--mut);padding:4px 2px}.linkbtn{background:none;border:0;color:var(--run);font-weight:600;padding:0;font-size:inherit;text-decoration:underline;cursor:pointer}
+.dashwrap{padding:0;overflow-x:auto}.dash{border-collapse:collapse;font-size:13px;min-width:100%;white-space:nowrap}.dash th,.dash td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center}.dash th:first-child,.dash td:first-child{text-align:left;position:sticky;left:0;background:var(--card)}
+.dash th{font-size:11px;font-weight:600;color:var(--mut);cursor:pointer;white-space:normal;min-width:64px;vertical-align:bottom}.dash th.on{color:var(--ink)}.dash tr:last-child td{border-bottom:0}
 </style>
 </head>
 <body>
@@ -842,7 +844,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const rich=s=>esc(s).replace(/‹([^›]*)›/g,'<small class="kmh">$1</small>');
 let TODAY=ymd(new Date());
-function checkDay(){ const t=ymd(new Date()); if(t!==TODAY){ TODAY=t; ROOT.profiles.forEach(p=>{ if(!p.ro) purgeOld(p.data); }); const ch=freezeAll(); refresh(); save(); render(); } }
+function checkDay(){ const t=ymd(new Date()); if(t!==TODAY){ TODAY=t; setTimeout(logOpen,500); ROOT.profiles.forEach(p=>{ if(!p.ro) purgeOld(p.data); }); const ch=freezeAll(); refresh(); save(); render(); } }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) checkDay(); }); window.addEventListener('focus',checkDay); setInterval(checkDay,60000);
 const FEEL=['Très facile','Facile','Correct','Dur','Très dur'];
 const BKIND={vacances:['Vacances','#1C7C93'],blessure:['Blessure','#B3261E'],maladie:['Maladie','#8A6400'],allege:['Semaine allégée','#7A5C9E']};
@@ -869,7 +871,7 @@ function mergeAth(o){
   const d=defaultState(); o=purgeOld(o||{}); const op=o.profile||{};
   const prof=Object.assign(d.profile,op,{avail:Object.assign(d.profile.avail,op.avail||{})});
   if(prof.vmaMode==='alterne') prof.vmaMode='alt1';
-  return {profile:prof,races:o.races||[],done:o.done||{},feel:o.feel||{},moves:o.moves||{},blocks:o.blocks||[],swaps:o.swaps||{},frozen:o.frozen||null,workouts:o.workouts||[],customs:o.customs||[],edits:o.edits||{},real:o.real||{},plan:o.plan||{},imports:o.imports||[],useApp:o.useApp||{},hidden:o.hidden||{}};
+  return {profile:prof,races:o.races||[],done:o.done||{},feel:o.feel||{},moves:o.moves||{},blocks:o.blocks||[],swaps:o.swaps||{},frozen:o.frozen||null,workouts:o.workouts||[],customs:o.customs||[],edits:o.edits||{},real:o.real||{},plan:o.plan||{},imports:o.imports||[],useApp:o.useApp||{},hidden:o.hidden||{},useLog:o.useLog||{}};
 }
 function migrate(o){ o=o||{};
   if(Array.isArray(o.profiles)&&o.profiles.length) return {profiles:o.profiles.slice(0,Math.max(MAXATH,20)).map((p,i)=>({id:String(p.id||('p'+i)),name:p.name||'Sportif',color:p.color||COLORS[i%COLORS.length],data:mergeAth(p.data)})),active:o.active,savedAt:o.savedAt||null,lastBackup:o.lastBackup||null,settings:Object.assign({coachView:true,noSwipe:false},o.settings||{})};
@@ -959,16 +961,16 @@ async function offerFile(name,data){
 
 /* ---------- navigation ---------- */
 function renderTabs(){
-  const sub=['watch','team','prof','guide','admin','gjoin'].includes(view)?'more':view;
+  const sub=['watch','team','prof','guide','admin','gjoin','dash'].includes(view)?'more':view;
   $('#tabs').innerHTML=[['today',"Aujourd'hui"],['plan','Programme'],['races','Courses'],['group','Groupe'],['more','Plus']].filter(([k])=>k!=='group'||G.on||ROOT.profiles.length>1).map(([k,l])=>
     `<button class="${sub===k?'on':''}" data-tab="${k}" ${sub===k?'aria-current="page"':''}>${ICON[k]}<span>${l}</span></button>`).join('');
 }
 function render(){
   if(GATE){ document.body.classList.add('gated'); $('#main').innerHTML=gateView(); setSync(); renderWho(); return; } document.body.classList.remove('gated');
-  if(view==='admin'&&!(G.on&&ADM())) view='more'; if(view==='team'&&G.on&&!ADM()) view='group'; pvBar();
+  if((view==='admin'||view==='dash')&&!(G.on&&ADM())) view='more'; if(view==='team'&&G.on&&!ADM()) view='group'; pvBar();
   renderTabs(); setSync();
-  const back=['watch','team','prof','guide','admin','gjoin'].includes(view)?'<button class="back" data-tab="more">‹ Plus</button>':'';
-  $('#main').innerHTML= back+(view==='today'?todayView(): view==='plan'?planView(): view==='more'?moreView(): view==='races'?racesView(): view==='guide'?guideView(): view==='team'?teamView(): view==='watch'?watchView(): view==='admin'?adminView(): view==='group'?groupView(): view==='gjoin'?joinView(): profPaged(profView()));
+  const back=['watch','team','prof','guide','admin','gjoin','dash'].includes(view)?'<button class="back" data-tab="more">‹ Plus</button>':'';
+  $('#main').innerHTML= back+(view==='today'?todayView(): view==='plan'?planView(): view==='more'?moreView(): view==='races'?racesView(): view==='guide'?guideView(): view==='team'?teamView(): view==='watch'?watchView(): view==='admin'?adminView(): view==='dash'?dashView(): view==='group'?groupView(): view==='gjoin'?joinView(): profPaged(profView()));
   renderWho(); if(modalKind==='fiche') drawFiche();
   if(typeof needsOnboard==='function'&&needsOnboard()) setTimeout(()=>{ if(needsOnboard()) wzStart(); },400); }
 const closeModal=()=>{ $('#modal').classList.remove('show','full'); document.body.classList.remove('side'); modalKind=null; };
@@ -1413,7 +1415,7 @@ function guideView(){
 
 /* ---------- montre ---------- */
 async function sendToWatch(kind,key){
-  const s=SESS[key]; if(!s||!s.wk) return;
+  const s=SESS[key]; if(!s||!s.wk) return; logUse(kind==='apple'?'apple':'garmin');
   if(kind==='garmin'){ const t=icuText(s); if(t){ icuSheet(s.title,t,key); return; } }
   if(kind==='garminfit') kind='garmin';
   const dk=key.split('|')[0], d=parseD(dk);
@@ -1448,7 +1450,7 @@ function howTo(){
 /* ---------- calendrier (.ics) ---------- */
 function icsEsc(t){ return String(t).replace(/‹([^›]*)›/g,'($1)').replace(/\\/g,'\\\\').replace(/;/g,'\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n'); }
 function icsFold(line){ const enc=new TextEncoder(); let out='', cur='', n=0; for(const ch of line){ const b=enc.encode(ch).length; if(n+b>73){ out+=cur+'\r\n '; cur=''; n=1; } cur+=ch; n+=b; } return out+cur; }
-async function exportICS(start,nMonths){
+async function exportICS(start,nMonths){ logUse('agenda');
   const who=MULTI()?activeAth().name:''; const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Coach Course Swimrun//FR','CALSCALE:GREGORIAN','X-WR-CALNAME:'+icsEsc('Entraînement'+(who?' '+who:''))];
   const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'');
   const EMO={run:'🏃',swim:'🏊',renfo:'💪',race:'🏁',off:'⏸'}; let count=0; const seen=new Set();
@@ -1488,14 +1490,14 @@ function icsOne(s,dk,hhmm){
     'UID:'+(activeAth().id+'-'+dk+'-'+s.title).replace(/[^\w-]/g,'').slice(0,60)+'@coach','DTSTAMP:'+stamp,'DTSTART:'+f(st),'DTEND:'+f(en),
     icsFold('SUMMARY:'+icsEsc((EMO[s.cat]||'')+' '+s.title.replace(/🏁\s*/,'')+(who?' ('+who+')':''))),icsFold('DESCRIPTION:'+icsEsc(desc)),'END:VEVENT','END:VCALENDAR'].join('\r\n')+'\r\n'; }
 function calDefault(dk){ const w=wd(parseD(dk)), k='coach-caltime-'+(w>=5?'we':'wk'); try{ return localStorage.getItem(k)||(w>=5?'09:00':'18:30'); }catch(e){ return w>=5?'09:00':'18:30'; } }
-async function addOneToCalendar(key){ const s=SESS[key], dk=SESSDK[key]; if(!s) return; const el=document.getElementById('caltime'), t=(el&&el.value)||calDefault(dk);
+async function addOneToCalendar(key){ const s=SESS[key], dk=SESSDK[key]; if(!s) return; logUse('agenda'); const el=document.getElementById('caltime'), t=(el&&el.value)||calDefault(dk);
   try{ localStorage.setItem('coach-caltime-'+(wd(parseD(dk))>=5?'we':'wk'),t); }catch(e){}
   const base=(dk+' '+s.title).replace(/×/g,'x').replace(/'/g,'min').replace(/"/g,'s').replace(/[·\/:*?<>|\\🏁⌚]/g,' ').replace(/\s+/g,' ').trim();
   await deliverICS(base,icsOne(s,dk,t),'Séance'); }
 
 /* ---------- PDF ---------- */
 function pdfTxt(s){ return String(s).replace(/‹([^›]*)›/g,'($1)').replace(/🏁\s*/g,'').replace(/→/g,'>').replace(/≈/g,'~').replace(/−/g,'-').replace(/[^\x00-\xFF–—’‘“”•…]/g,''); }
-async function exportPDF(start,nMonths){
+async function exportPDF(start,nMonths){ logUse('pdf');
   if(!window.jspdf){ toast('Module PDF indisponible, réessaie dans un instant'); return; }
   const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'}); const P=S.profile, g=nextGoal();
   const COL={swim:[28,124,147],renfo:[122,92,158],race:[150,110,0],off:[120,120,120],run:[190,64,28]};
@@ -1959,7 +1961,7 @@ function wbGet(path){ return path.split('.').reduce((o,k)=>o&&o[k],WB); }
 function wbSetPath(path,val){ const k=path.split('.'), last=k.pop(); const o=k.reduce((o,x)=>o[x],WB); o[last]=val; }
 function wbRefreshSum(){ const el=document.getElementById('wbsum'); if(el) el.innerHTML=wbSummary(); }
 function wbOpen(w){ WB=w; WBSEL=new Set(); view='watch'; render(); setTimeout(()=>{ const e=document.querySelector('.wbed'); if(e) e.scrollIntoView({behavior:'smooth'}); },50); }
-async function wbExport(kind){
+async function wbExport(kind){ logUse(kind==='apple'?'apple':'garmin');
   const s=wbSession(EN,WB), who=MULTI()?activeAth().name:'';
   if(kind==='garmin'){ const t=icuText(s); if(t){ icuSheet(WB.name,t); return; } }
   const clean=WB.name.replace(/×/g,'x').replace(/\//g,'-').replace(/·/g,'-').replace(/'/g,'min').replace(/"/g,'s').replace(/[:*?<>|\\]/g,' ').replace(/\s+/g,' ').trim(), base=(who?who+' ':'')+clean, name=WB.name+(who?' ('+who+')':'');
@@ -2036,7 +2038,7 @@ const gLink=p=>location.origin+location.pathname+'#k='+p.key;
 
 /* ---- historique : effacement automatique après 2 mois ---- */
 function purgeOld(o){ if(!o||typeof o!=='object') return o; const lim=ymd(addDays(new Date(),-61)); const old=k=>String(k).slice(0,10)<lim;
-  for(const f of ['done','feel','moves','swaps','edits','real','plan','useApp','hidden']) if(o[f]&&typeof o[f]==='object') for(const k of Object.keys(o[f])) if(old(k)) delete o[f][k];
+  for(const f of ['done','feel','moves','swaps','edits','real','plan','useApp','hidden','useLog']) if(o[f]&&typeof o[f]==='object') for(const k of Object.keys(o[f])) if(old(k)) delete o[f][k];
   if(Array.isArray(o.customs)) o.customs=o.customs.filter(c=>!c.date||c.date>=lim);
   if(Array.isArray(o.blocks)) o.blocks=o.blocks.filter(b=>!b.to||b.to>=lim);
   if(Array.isArray(o.imports)) o.imports=o.imports.filter(m=>!m.to||m.to>=lim);
@@ -2154,6 +2156,7 @@ function adminView(){
   if(G.err||gInflight) h+=`<div class="ev ${G.err?'irr':'amb'}" style="margin-bottom:12px"><b>${G.err?'Problème de synchronisation':'Envoi en cours…'}</b>${G.err?esc(G.err.who?G.err.who+' : ':'')+'<code>'+esc(G.err.code||'')+'</code> '+esc(G.err.msg||'')+' <span class="small mut">('+when(G.err.at)+')</span>':'Des modifications attendent la réponse du serveur.'}
     <div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-gact="resync">Renvoyer tout</button><button class="btn ghost sm" data-gact="repair">Réparer la synchro</button></div></div>`;
   if(late) h+=`<div class="ev amb" style="margin-bottom:12px"><b>Sauvegarde du club ${lb?'de plus d\'un mois':'jamais faite'}</b>Télécharge une sauvegarde (en bas de page) et garde-la dans tes fichiers.</div>`;
+  h+=`<button class="card morerow" data-tab="dash" style="width:100%;text-align:left;margin-bottom:12px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">📊</span><span style="flex:1"><b>Tableau de bord</b><br><span class="small mut">Connexions et fonctions utilisées par chacun</span></span><span class="mut">›</span></button>`;
   h+=`<div class="sectitle">Sportifs (${L.length}/${MAXATH})</div><div class="list">`;
   for(const p of L){ const up=G.meta&&G.meta[p.id];
     h+=`<div class="card admrow"><div class="row"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0"><b>${esc(p.name)}</b><div class="small mut">${G.srv[p.id]===p.key?'<b style="color:var(--ev-att)">✓ Lien actif</b> · …'+esc(p.key.slice(-5)):'<b style="color:var(--ev-amb)">⏳ Enregistrement en cours…</b>'}${up?' · modifié '+when(up):''}</div></div></div>
@@ -2313,7 +2316,7 @@ function gListenUser(){ const F=G.F, db=G.db; G.state='wait'; setSync();
     if(snap.metadata.hasPendingWrites) return;
     const d=snap.data(); G.me=d.pub; const ch=gApplyFull(d.pub,G.key,d);
     if(!snap.metadata.fromCache&&!gInflight) G.state='ok';
-    if(ch||GATE){ gAssemble(); gReady(); gCache(); gRender(); } else setSync(); },
+    if(ch||GATE){ gAssemble(); gReady(); gCache(); gRender(); } else setSync(); if(!snap.metadata.fromCache) setTimeout(logOpen,800); },
     err=>{ console.error(err); G.state='off'; setSync(); });
   listenPubs(); }
 async function gStart(){
@@ -2465,7 +2468,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261113130957';
+const BUILD='20261113135140';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2520,6 +2523,45 @@ document.addEventListener('click',e=>{ let t;
 
 function gErr(err,who){ console.error(who||'',err); G.err={code:(err&&err.code)||'erreur',msg:String((err&&err.message)||err).slice(0,160),who:who||'',at:new Date().toISOString()};
   if(G.err.code==='permission-denied') toast('Enregistrement refusé par le serveur'); else if(G.err.code==='resource-exhausted') toast('Quota Firebase du jour dépassé'); }
+
+/* ===================== tableau de bord d'utilisation (admin) ===================== */
+function devName(){ const u=navigator.userAgent; const st=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone;
+  return (/iPhone|iPod/.test(u)?'iPhone':/iPad|Macintosh/.test(u)&&'ontouchend' in document?'iPad':/Android/.test(u)?'Android':'Ordinateur')+(st?' (écran d\'accueil)':''); }
+function logOpen(){ if(!G.on||G.admin||GATE||!S) return; const t=ymd(new Date()); S.useLog=S.useLog||{}; const L=S.useLog[t];
+  if(L&&L.d) return; S.useLog[t]=Object.assign({},L||{},{d:devName(),at:new Date().toISOString()}); save(); }
+function logUse(ev){ if(!G.on||G.admin||!S) return; const t=ymd(new Date()); S.useLog=S.useLog||{}; const L=S.useLog[t]=S.useLog[t]||{d:devName(),at:new Date().toISOString()}; L.ev=L.ev||{}; L.ev[ev]=(L.ev[ev]||0)+1; save(); }
+let DASHP=28, DASHS='seen', DASHD=-1;
+function dashStats(p,days){ const D=p.data, lim=ymd(addDays(new Date(),-days+1)), inP=k=>String(k).slice(0,10)>=lim;
+  const logs=Object.entries(D.useLog||{}).filter(([k])=>inP(k)).sort((a,b)=>a[0]<b[0]?1:-1), all=Object.entries(D.useLog||{}).sort((a,b)=>a[0]<b[0]?1:-1);
+  const last=all.find(([k,v])=>v&&v.d), ev={}; logs.forEach(([k,v])=>Object.entries((v&&v.ev)||{}).forEach(([e,n])=>ev[e]=(ev[e]||0)+n));
+  const devs=[...new Set(logs.map(([k,v])=>v&&v.d).filter(Boolean))];
+  return {seen:last?last[0]:null,seenAt:last?last[1].at:null,dev:last?last[1].d:(devs[0]||''),devs,days:logs.filter(([k,v])=>v&&v.d).length,
+    imports:(D.imports||[]).filter(m=>m.at&&m.at.slice(0,10)>=lim).length,edits:Object.keys(D.edits||{}).filter(inP).length,hidden:Object.keys(D.hidden||{}).filter(inP).length,
+    real:Object.keys(D.real||{}).filter(inP).length,watch:(ev.apple||0)+(ev.garmin||0),pdf:ev.pdf||0,agenda:ev.agenda||0,
+    races:(D.races||[]).filter(r=>r.id>1e12&&ymd(new Date(r.id))>=lim).length,racesAll:(D.races||[]).filter(r=>r.date>=TODAY).length,
+    onb:!!(D.profile.onboarded||+D.profile.vma!==13.5||(D.races||[]).length)}; }
+function dashView(){ if(!(G.on&&ADM())) return '<p>Réservé à l\'administrateur.</p>';
+  const L=editables(), rows=L.map(p=>({p,s:dashStats(p,DASHP)})), t=ymd(new Date());
+  const sum=k=>rows.reduce((a,r)=>a+(+r.s[k]||0),0), act=rows.filter(r=>r.s.days>0).length, today=rows.filter(r=>r.s.seen===t).length;
+  const dc={}; rows.forEach(r=>r.s.devs.forEach(d=>{ const k=d.replace(/ \(.*/,''); dc[k]=(dc[k]||0)+1; }));
+  const when2=d=>{ if(!d) return 'jamais'; const n=Math.round((parseD(t)-parseD(d))/864e5); return n===0?'aujourd\'hui':n===1?'hier':'il y a '+n+' j'; };
+  const cols=[['name','Sportif'],['seen','Dernière ouverture'],['dev','Appareil'],['days','Jours actifs'],['imports','Plans importés'],['edits','Séances modifiées'],['hidden','Séances supprimées'],['real','Réalisés saisis'],['watch','Envois montre'],['pdf','PDF'],['agenda','Agenda'],['races','Courses ajoutées'],['onb','Démarrage fait']];
+  const val=(r,k)=>k==='name'?r.p.name:k==='seen'?(r.s.seen||''):k==='dev'?r.s.dev:k==='onb'?(r.s.onb?1:0):r.s[k];
+  rows.sort((a,b)=>{ const x=val(a,DASHS), y=val(b,DASHS); return (x<y?-1:x>y?1:0)*DASHD; });
+  const kpi=(l,v,sub)=>`<div class="kpi"><small>${l}</small><b>${v}</b>${sub?`<div class="small mut">${sub}</div>`:''}</div>`;
+  let h=`<div class="row between" style="margin:8px 0 10px"><h2 class="cond" style="margin:0;font-size:26px;text-transform:uppercase">Tableau de bord</h2><button class="btn ghost sm" data-tab="admin">Console</button></div>
+  <div class="gfilt">${[[7,'7 jours'],[28,'4 semaines'],[61,'2 mois']].map(([n,l])=>`<button class="${DASHP===n?'on':''}" data-dashp="${n}">${l}</button>`).join('')}</div>
+  <div class="sectitle">Connexions</div><div class="kpis" style="grid-template-columns:repeat(3,1fr)">${kpi('Actifs sur la période',act+'/'+L.length)}${kpi('Ouvert aujourd\'hui',today)}${kpi('Jamais ouvert',rows.filter(r=>!r.s.seen).length)}</div>
+  <p class="small mut" style="margin:6px 2px 0">Appareils : ${Object.entries(dc).map(([k,n])=>esc(k)+' '+n).join(' · ')||'—'}</p>
+  <div class="sectitle">Fonctions utilisées</div><div class="kpis" style="grid-template-columns:repeat(3,1fr)">${kpi('Plans importés',sum('imports'))}${kpi('Séances modifiées',sum('edits'))}${kpi('Séances supprimées',sum('hidden'))}${kpi('Réalisés saisis',sum('real'))}${kpi('Envois montre',sum('watch'))}${kpi('PDF · agenda',sum('pdf')+' · '+sum('agenda'))}${kpi('Courses ajoutées',sum('races'))}${kpi('Démarrage fait',rows.filter(r=>r.s.onb).length+'/'+L.length)}${kpi('Courses à venir',sum('racesAll'))}</div>
+  <div class="sectitle">Par sportif <span class="small mut" style="text-transform:none;font-weight:400">· touche une colonne pour trier</span></div>
+  <div class="card dashwrap"><table class="dash"><thead><tr>${cols.map(([k,l])=>`<th data-dashs="${k}" class="${DASHS===k?'on':''}">${l}${DASHS===k?(DASHD>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead><tbody>
+  ${rows.map(r=>`<tr><td><span class="adot" style="background:${r.p.color};width:22px;height:22px;font-size:11px;display:inline-grid;vertical-align:middle">${esc(r.p.name.slice(0,1).toUpperCase())}</span> ${esc(r.p.name)}</td><td>${when2(r.s.seen)}</td><td>${esc(r.s.dev||'—')}</td><td>${r.s.days}</td><td>${r.s.imports}</td><td>${r.s.edits}</td><td>${r.s.hidden}</td><td>${r.s.real}</td><td>${r.s.watch}</td><td>${r.s.pdf}</td><td>${r.s.agenda}</td><td>${r.s.races}</td><td>${r.s.onb?'✓':'—'}</td></tr>`).join('')}</tbody></table></div>
+  <p class="hint">Les connexions sont comptées à partir de cette version de l'appli (une fois par jour et par sportif). Ton accès administrateur n'est pas compté. Les données de plus de 2 mois s'effacent automatiquement.</p>`;
+  return h; }
+document.addEventListener('click',e=>{ let t;
+  if(t=e.target.closest('[data-dashp]')){ DASHP=+t.dataset.dashp; render(); return; }
+  if(t=e.target.closest('[data-dashs]')){ const k=t.dataset.dashs; if(DASHS===k) DASHD=-DASHD; else { DASHS=k; DASHD=k==='name'?1:-1; } render(); return; } });
 
 /* ===================== Import d'un plan (Word / PDF) ===================== */
 const PMONTHS=['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
@@ -2702,7 +2744,7 @@ document.addEventListener('click',e=>{ let t;
 });
 
 /* ---- import ---- */
-async function planImport(file){ const by=activeAth().name; let R;
+async function planImport(file){ const by=activeAth().name; let R; logUse('import');
   try{ const buf=await file.arrayBuffer(); const isPdf=/\.pdf$/i.test(file.name)||new Uint8Array(buf,0,4).join()==='37,80,68,70';
     R=isPdf?await readPdf(buf):await readDocx(buf); }
   catch(e){ console.error(e); toast(/pdfjs/.test(e&&e.message)?'Lecteur PDF indisponible : vérifie ta connexion internet':'Fichier illisible : choisis un Word (.docx) ou un PDF texte'); return; }

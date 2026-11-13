@@ -2465,7 +2465,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261113114208';
+const BUILD='20261113130957';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2681,6 +2681,10 @@ function applyPlan(r,data,ws){ const imps=data.imports; if(!imps||!imps.length) 
     imp.forEach(s=>{ s.appAlt=appRuns.map(a=>({title:a.title,sum:a.sum})); });
     if(!data.profile.noAppSugg&&appRuns.length){ r.ghosts=r.ghosts||{}; r.ghosts[i]=appRuns.map(a=>Object.assign({},a,{ghost:true,key:'G|'+a.key,restDay:!imp.length})); }
     r.days[i]=day.filter(s=>!(s.cat==='run'&&!s.custom&&!s.imported)).concat(imp); }
+  // déplacements des séances importées (dans la semaine)
+  const M=data.moves||{}, mv=[];
+  for(let i=0;i<7;i++) r.days[i]=r.days[i].filter(s=>{ if(!s.imported) return true; const t=M[s.key]; if(t&&t!==s.orig){ const j=Math.round((parseD(t)-ws)/864e5); if(j>=0&&j<7&&j!==i){ s.moved=true; mv.push([j,s]); return false; } } return true; });
+  mv.forEach(([j,s])=>r.days[j].push(s));
   return r; }
 /* ---- séances supprimées ---- */
 function applyHidden(r,data){ const H=data.hidden||{}; if(!Object.keys(H).length) return r; r.hid={};

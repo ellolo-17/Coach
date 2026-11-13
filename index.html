@@ -1422,7 +1422,7 @@ function guideView(){
 
 /* ---------- montre ---------- */
 async function sendToWatch(kind,key){
-  const s=SESS[key]; if(!s||!s.wk) return; logUse(kind==='apple'?'apple':'garmin');
+  const s=SESS[key]; if(!s||!s.wk) return; if(kind!=='garminfit') logUse(kind==='apple'?'apple':'garmin');
   if(kind==='garmin'){ const t=icuText(s); if(t){ icuSheet(s.title,t,key); return; } }
   if(kind==='garminfit') kind='garmin';
   const dk=key.split('|')[0], d=parseD(dk);
@@ -1967,9 +1967,10 @@ function wbGet(path){ return path.split('.').reduce((o,k)=>o&&o[k],WB); }
 function wbSetPath(path,val){ const k=path.split('.'), last=k.pop(); const o=k.reduce((o,x)=>o[x],WB); o[last]=val; }
 function wbRefreshSum(){ const el=document.getElementById('wbsum'); if(el) el.innerHTML=wbSummary(); }
 function wbOpen(w){ WB=w; WBSEL=new Set(); view='watch'; render(); setTimeout(()=>{ const e=document.querySelector('.wbed'); if(e) e.scrollIntoView({behavior:'smooth'}); },50); }
-async function wbExport(kind){ logUse(kind==='apple'?'apple':'garmin');
+async function wbExport(kind){ if(kind!=='garminfit') logUse(kind==='apple'?'apple':'garmin');
   const s=wbSession(EN,WB), who=MULTI()?activeAth().name:'';
   if(kind==='garmin'){ const t=icuText(s); if(t){ icuSheet(WB.name,t); return; } }
+  if(kind==='garminfit') kind='garmin';
   const clean=WB.name.replace(/×/g,'x').replace(/\//g,'-').replace(/·/g,'-').replace(/'/g,'min').replace(/"/g,'s').replace(/[:*?<>|\\]/g,' ').replace(/\s+/g,' ').trim(), base=(who?who+' ':'')+clean, name=WB.name+(who?' ('+who+')':'');
   const data=kind==='apple'?encAppleWorkout(name,s.wk):encGarminFit(name,s.wk), ext=kind==='apple'?'.workout':'.fit';
   const ok=STANDALONE? await offerFile(base+ext,data) : await offerFile(base+(kind==='apple'?' Apple':' Garmin')+'.zip',makeZip([{name:base+ext,data}]));
@@ -2390,12 +2391,20 @@ function icuText(s){ const wk=s.wk; if(!wk) return null; const fp=x=>{ x=Math.ro
   if(wk.cool!==false&&wk.warm) L.push('Cooldown',step(wk.coolStep,(cMin?cMin[1]:10)+'m',slow));
   else if(wk.coolStep) L.push('Cooldown',step(wk.coolStep,'10m',slow));
   return L.join('\n').trim(); }
-function icuSheet(title,txt,fitKey){ modalKind='txt';
-  $('#sheet').innerHTML=`<h3>Garmin via intervals.icu</h3><p class="small mut">${esc(title)}</p><textarea class="inp" id="icutxt" style="height:200px;font-family:ui-monospace,monospace;font-size:13px" readonly>${esc(txt)}</textarea>
-  <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn" data-icucopy="1">Copier et ouvrir intervals.icu</button><button class="btn ghost" data-close="1">Fermer</button></div>
-  <ol class="small" style="padding-left:18px;margin:12px 0 0"><li>Dans intervals.icu, touche le jour de la séance dans le calendrier › <b>Ajouter une séance (workout)</b>.</li><li>Donne-lui un nom, choisis <b>Run</b>, puis colle le texte dans la zone de description.</li><li>Enregistre : intervals.icu l'envoie dans ton calendrier Garmin Connect, puis sur ta montre à la prochaine synchro.</li></ol>
-  <p class="hint">Garmin Connect n'accepte pas l'import direct d'un fichier de séance (seulement des activités et des parcours) : c'est pour cela que le fichier .fit était reconnu sans créer la séance.${fitKey?` Le fichier .fit reste utile pour intervals.icu (import de fichier) ou un câble USB : <button class="linkbtn" data-wx="garminfit" data-key="${esc(fitKey)}">télécharger le .fit</button>.`:''}</p>`;
+function icuSheet(title,txt,fitKey){ modalKind='txt'; const fitBtn=fitKey?`data-wx="garminfit" data-key="${esc(fitKey)}"`:'data-wbfit="1"';
+  $('#sheet').innerHTML=`<h3>Envoyer vers Garmin</h3><p class="small mut" style="margin:0 0 10px">${esc(title)}</p>
+  <div class="ptabs"><button class="on" data-gtab="icu">📱 Téléphone</button><button data-gtab="pc">💻 Ordinateur</button></div>
+  <div data-gpane="icu"><textarea class="inp" id="icutxt" style="height:170px;font-family:ui-monospace,monospace;font-size:13px" readonly>${esc(txt)}</textarea>
+   <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn" data-icucopy="1">Copier et ouvrir intervals.icu</button></div>
+   <ol class="small" style="padding-left:18px;margin:12px 0 0"><li>Dans le calendrier d'intervals.icu, touche le <b>jour</b> de la séance › <b>Add workout</b> (ajouter une séance).</li><li>Choisis le sport <b>Run</b>, donne un nom, puis <b>colle le texte</b> dans la zone de description : le graphique de la séance apparaît.</li><li><b>Save</b> : intervals.icu l'envoie dans le calendrier Garmin Connect, puis sur la montre à la prochaine synchro.</li></ol>
+   <p class="hint">Réglage à faire une seule fois : intervals.icu › Settings › Garmin Connect › connecter ton compte et cocher l'envoi des séances planifiées (« Upload planned workouts »).</p></div>
+  <div data-gpane="pc" hidden><button class="btn" ${fitBtn}>Télécharger le fichier .fit</button>
+   <ol class="small" style="padding-left:18px;margin:12px 0 0"><li>Sur un ordinateur, va sur <b>connect.garmin.com</b> › Entraînement et planification › <b>Entraînements</b>.</li><li>Clique sur <b>Importer</b> (en haut à droite) et choisis le fichier .fit.</li><li>Enregistre, programme-la si tu veux à une date, puis synchronise ta montre.</li></ol>
+   <p class="hint">Le bouton « Importer » n'existe pas sur tous les comptes, et l'appli Garmin Connect du téléphone ne sait pas importer une séance : elle prend le fichier pour une activité déjà faite. Dans ce cas, utilise l'onglet Téléphone (intervals.icu).</p></div><div style="margin-top:12px"><button class="btn ghost" data-close="1">Fermer</button></div>`;
   $('#modal').classList.add('show'); }
+document.addEventListener('click',e=>{ const t=e.target.closest('[data-gtab]'); if(!t) return; const k=t.dataset.gtab, sh=$('#sheet');
+  sh.querySelectorAll('[data-gtab]').forEach(b=>b.classList.toggle('on',b===t)); sh.querySelectorAll('[data-gpane]').forEach(p=>p.hidden=p.dataset.gpane!==k); });
+document.addEventListener('click',e=>{ if(e.target.closest('[data-wbfit]')) wbExport('garminfit'); });
 document.addEventListener('click',e=>{ if(!e.target.closest('[data-icucopy]')) return; const t=($('#icutxt')||{}).value||'';
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('Texte copié : colle-le dans intervals.icu'),()=>toast('Sélectionne le texte et copie-le'));
   window.open('https://intervals.icu/calendar','_blank'); });
@@ -2475,7 +2484,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261113141112';
+const BUILD='20261113144944';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

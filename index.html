@@ -215,6 +215,7 @@ body.gated nav.tabs,body.gated #who{display:none}
  body.side .wrap,body.side header.top,body.side nav.tabs{margin-left:max(16px,calc((100vw - 460px - 860px)/2));margin-right:auto}}
 .gfilt{display:flex;gap:6px;margin:0 0 10px;overflow-x:auto}.gfilt button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600}.gfilt button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .gline{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}.gline:last-child{border-bottom:0}.gline .adot{width:26px;height:26px;font-size:14px}.gline .nm{font-weight:600;min-width:64px}.gline .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut)}
+.impbar{margin:0 0 12px;padding:10px 12px}.impbar .gline .tx{white-space:normal}
 </style>
 </head>
 <body>
@@ -866,7 +867,7 @@ function mergeAth(o){
   const d=defaultState(); o=purgeOld(o||{}); const op=o.profile||{};
   const prof=Object.assign(d.profile,op,{avail:Object.assign(d.profile.avail,op.avail||{})});
   if(prof.vmaMode==='alterne') prof.vmaMode='alt1';
-  return {profile:prof,races:o.races||[],done:o.done||{},feel:o.feel||{},moves:o.moves||{},blocks:o.blocks||[],swaps:o.swaps||{},frozen:o.frozen||null,workouts:o.workouts||[],customs:o.customs||[],edits:o.edits||{},real:o.real||{}};
+  return {profile:prof,races:o.races||[],done:o.done||{},feel:o.feel||{},moves:o.moves||{},blocks:o.blocks||[],swaps:o.swaps||{},frozen:o.frozen||null,workouts:o.workouts||[],customs:o.customs||[],edits:o.edits||{},real:o.real||{},plan:o.plan||{},imports:o.imports||[],useApp:o.useApp||{}};
 }
 function migrate(o){ o=o||{};
   if(Array.isArray(o.profiles)&&o.profiles.length) return {profiles:o.profiles.slice(0,Math.max(MAXATH,20)).map((p,i)=>({id:String(p.id||('p'+i)),name:p.name||'Sportif',color:p.color||COLORS[i%COLORS.length],data:mergeAth(p.data)})),active:o.active,savedAt:o.savedAt||null,lastBackup:o.lastBackup||null,settings:Object.assign({coachView:true,noSwipe:false},o.settings||{})};
@@ -884,7 +885,7 @@ function engineFor(pid,hooks){ const p=ath(pid); if(!p) return null;
   const withCustoms=base=>Object.assign({},base,{buildWeek:ws=>{ const r=base.buildWeek(ws); const we=ymd(addDays(ws,6)), w0=ymd(ws);
     for(const c of (p.data.customs||[])){ if(c.date<w0||c.date>we) continue; const s=wbSession(live,c.w); s.key=c.date+'|'+s.title+'|'+c.id; s.orig=c.date; s.cw=c.w; s.cid=c.id;
       const mv=(p.data.moves||{})[s.key], d=mv&&mv>=w0&&mv<=we?parseD(mv):parseD(c.date); if(mv) s.moved=true; r.days[wd(d)].push(s); }
-    return applyEdits(r,p.data); }});
+    return applyEdits(applyPlan(r,p.data,ws),p.data); }});
   if(!fz||!fz.until||!fz.cfgs||!fz.cfgs.length) return withCustoms(live);
   const cache={};
   return withCustoms(Object.assign({},live,{buildWeek:ws=>{ const k=ymd(ws); if(k>=fz.until) return live.buildWeek(ws);
@@ -990,7 +991,7 @@ function planView(){
   if(fat&&thisW.phase!=='Assimilation') h+=`<div class="alert"><b>Ça tire un peu.</b> Tes dernières séances ont été notées dures (moyenne ${v1(fat.avg)}/5). Une semaine allégée t'aidera à assimiler.<div style="margin-top:8px"><button class="btn sm" data-allege="1">Alléger cette semaine</button></div></div>`;
   h+=`<div class="ctx"><button class="vma" data-tab="prof"><b>${fmtPaceSec(3600/S.profile.vma)}</b><small>allure VMA /km<br>${v1(S.profile.vma)} km/h</small></button>
   <div><div class="small">${g?`Prochain objectif : <b>${esc(g.name)}</b> <span class="chip">${g.prio}</span><br><span class="mut">${parseD(g.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} · dans ${Math.max(0,weeksBetween(mondayOf(new Date()),mondayOf(parseD(g.date))))} sem.</span>`:'<span class="mut">Aucune course au calendrier : cycle foncier. Ajoute tes courses pour une préparation ciblée.</span>'}</div>
-  <div style="margin-top:6px" class="row"><span class="chip ph-${thisW.phase.split(' ')[0]}">Cette semaine : ${thisW.phase}</span><button class="btn sm" data-pdfdlg="1">Exporter PDF</button></div></div></div>`;
+  <div style="margin-top:6px" class="row"><span class="chip ph-${thisW.phase.split(' ')[0]}">Cette semaine : ${thisW.phase}</span><button class="btn sm" data-pdfdlg="1">Exporter PDF</button></div></div></div>`+planBarHTML();
   const thisMon=mondayOf(new Date()), isCurMonth=cur.getFullYear()===new Date().getFullYear()&&cur.getMonth()===new Date().getMonth();
   const allW=monthWeeks(cur), hidden=isCurMonth&&!showPastWeeks?allW.filter(ws=>ws<thisMon).length:0;
   if(hidden) h+=`<button class="btn ghost sm" data-showpast="1" style="width:100%;margin-top:4px">↑ Voir ${hidden>1?'les '+hidden+' semaines précédentes':'la semaine précédente'} du mois</button>`;
@@ -1717,6 +1718,7 @@ function drawFiche(){ const s=SESS[ficheKey]; if(!s){ closeModal(); return; } co
   if(s.cat!=='race'&&s.cat!=='off') h+=`<details class="fd"><summary>Déplacer${s.moved?' (déplacée)':''}</summary><div class="in"><div class="dchips">${DSHORT.map((dd,j)=>{ const x=addDays(ws,j), t=ymd(x); return `<button class="dchip ${t===dk?'on':''}" data-mv="${j}" data-key="${ek}" data-ws="${ymd(ws)}">${dd} ${x.getDate()}</button>`; }).join('')}</div><p class="hint">Dans la même semaine. Re-choisis le jour d'origine pour annuler.</p></div></details>`;
   if(s.cat!=='off') h+=`<details class="fd"><summary>📅 Ajouter au calendrier</summary><div class="in"><div class="row" style="flex-wrap:wrap"><span class="small">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} à</span><input type="time" id="caltime" class="inp" style="width:120px" value="${calDefault(dk)}"><button class="btn sm" data-cal="${ek}">Ajouter</button></div>
     <p class="hint">${STANDALONE?'Le partage de l\'iPhone s\'ouvre : choisis <b>Mail</b> et envoie-toi le message. Dans l\'app Mail, touche la pièce jointe → « Ajouter au calendrier ».':'Le fichier .ics s\'ouvre dans le partage : choisis <b>Mail</b> et envoie-le-toi, puis touche la pièce jointe dans l\'app Mail → « Ajouter au calendrier ». (Si l\'appli te donne un .zip, ouvre-le dans Fichiers puis partage le .ics par Mail.)'} Durée : ${fmtMin(Math.max(15,s.dur||60))}.</p></div></details>`;
+  h+=planAltHTML(s);
   if(s.cat!=='race'&&s.cat!=='off') h+=editHTML(s);
   if(s.custom) h+=`<div style="margin-top:12px"><button class="btn ghost sm" data-uncust="${s.cid}">Retirer du programme</button></div>`;
   if(!done&&s.cat!=='race'&&s.cat!=='off') h+=`<p class="hint">Astuce : dans le Programme, balaye une séance vers la droite pour la marquer faite, vers la gauche pour la changer.</p>`;
@@ -2029,9 +2031,10 @@ const gLink=p=>location.origin+location.pathname+'#k='+p.key;
 
 /* ---- historique : effacement automatique après 2 mois ---- */
 function purgeOld(o){ if(!o||typeof o!=='object') return o; const lim=ymd(addDays(new Date(),-61)); const old=k=>String(k).slice(0,10)<lim;
-  for(const f of ['done','feel','moves','swaps']) if(o[f]&&typeof o[f]==='object') for(const k of Object.keys(o[f])) if(old(k)) delete o[f][k];
+  for(const f of ['done','feel','moves','swaps','edits','real','plan','useApp']) if(o[f]&&typeof o[f]==='object') for(const k of Object.keys(o[f])) if(old(k)) delete o[f][k];
   if(Array.isArray(o.customs)) o.customs=o.customs.filter(c=>!c.date||c.date>=lim);
   if(Array.isArray(o.blocks)) o.blocks=o.blocks.filter(b=>!b.to||b.to>=lim);
+  if(Array.isArray(o.imports)) o.imports=o.imports.filter(m=>!m.to||m.to>=lim);
   const lim6=ymd(addDays(new Date(),-183)); if(Array.isArray(o.races)) o.races=o.races.filter(r=>!r.date||r.date>=lim6);
   return o; }
 
@@ -2221,7 +2224,7 @@ function gDoImport(){ if(!gImport) return; const L=gImport.list; gImport=null; c
 const ENGK=['vma','age','sex','level','avail','lrDay','maxRun','weekdayMax','vmaMode','mixWeek','swimAllYear','swimMin','swim100','css','noClub','prefs'];
 function pubOf(p){ const eng={}; ENGK.forEach(k=>{ if(p.data.profile[k]!==undefined) eng[k]=p.data.profile[k]; });
   const D=p.data, real={}; Object.entries(D.real||{}).forEach(([k,x])=>{ real[k]={t:x.t,dur:x.dur,km:x.km}; });
-  eng.act=JSON.stringify({done:D.done||{},moves:D.moves||{},swaps:D.swaps||{},customs:D.customs||[],edits:D.edits||{},real});
+  eng.act=JSON.stringify({done:D.done||{},moves:D.moves||{},swaps:D.swaps||{},customs:D.customs||[],edits:D.edits||{},real,plan:D.plan||{},imports:D.imports||[],useApp:D.useApp||{}});
   return JSON.parse(JSON.stringify({name:p.name,color:p.color,races:p.data.races||[],eng,blocks:(p.data.blocks||[]).map(b=>({kind:b.kind,from:b.from,to:b.to,id:b.id||null}))})); }
 function pubProfile(id,pb){ let act={}; try{ act=JSON.parse((pb.eng||{}).act||'{}'); }catch(e){}
   const eng=Object.assign({},pb.eng||{}); delete eng.act;
@@ -2457,7 +2460,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261113091526';
+const BUILD='20261113113130';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2512,6 +2515,205 @@ document.addEventListener('click',e=>{ let t;
 
 function gErr(err,who){ console.error(who||'',err); G.err={code:(err&&err.code)||'erreur',msg:String((err&&err.message)||err).slice(0,160),who:who||'',at:new Date().toISOString()};
   if(G.err.code==='permission-denied') toast('Enregistrement refusé par le serveur'); else if(G.err.code==='resource-exhausted') toast('Quota Firebase du jour dépassé'); }
+
+/* ===================== Import d'un plan (Word / PDF) ===================== */
+const PMONTHS=['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
+const PDAYS=['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
+const deacc=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'');
+function pNorm(s){ return String(s||'').replace(/ | /g,' ').replace(/[’‘´`′]/g,"'").replace(/[“”″]/g,"''").replace(/[–—−]/g,'-').replace(/×/g,'x')
+  .replace(/(\d)\s+(m|km)\b/g,'$1$2').replace(/\s+/g,' ').trim(); }
+/* durée : 1h00, 1h10', 45', 2'30'', 30'', 5 min */
+function pDur(t){ t=String(t||'').trim().replace(/\s/g,''); let m;
+  if(m=t.match(/^(\d+)h(\d{1,2})?'?$/i)) return +m[1]*3600+(+m[2]||0)*60;
+  if(m=t.match(/^(\d+)'(\d{1,2})(?:''|")?$/)) return +m[1]*60+ +m[2];
+  if(m=t.match(/^(\d+)(?:''|")$/)) return +m[1];
+  if(m=t.match(/^(\d+)'$/)) return +m[1]*60;
+  if(m=t.match(/^(\d+)min$/i)) return +m[1]*60;
+  if(m=t.match(/^(\d+)s(?:ec)?$/i)) return +m[1];
+  return null; }
+function pDist(t){ const m=String(t||'').trim().match(/^(\d+(?:[.,]\d+)?)(m|km)$/i); return m?Math.round(parseFloat(m[1].replace(',','.'))*(m[2].toLowerCase()==='km'?1000:1)):null; }
+function pAmount(t){ const d=pDist(t); if(d) return ['dist',d]; const s=pDur(t); return s?['time',s]:null; }
+/* retire les parenthèses « d'information » (temps cibles, distances) et les mémorise */
+function pInfo(s,info){ let prev; do{ prev=s; s=s.replace(/\(([^()]*)\)/g,(all,c)=>/^[\d\s'"\/.,:hmk%\-]+$/i.test(c.replace(/km|m\b/g,''))?(info.push(c.trim()),''):all); }while(s!==prev); return s.replace(/\s+/g,' ').trim(); }
+/* parenthèses non fermées / en trop */
+function pBalance(s){ let d=0, o=''; for(const ch of s){ if(ch==='('){ d++; o+=ch; } else if(ch===')'){ if(d>0){ d--; o+=ch; } } else o+=ch; }
+  if(!d) return o; const lp=o.lastIndexOf('('), m=[...o.matchAll(/\s+R\s*:/g)].pop(); // parenthèse oubliée : on la ferme avant la récup entre séries
+  return m&&m.index>lp?o.slice(0,m.index)+')'.repeat(d)+o.slice(m.index):o+')'.repeat(d); }
+function pStrip(s){ s=s.trim(); while(s.startsWith('(')&&s.endsWith(')')){ let d=0, ok=true; for(let i=0;i<s.length;i++){ if(s[i]==='(') d++; else if(s[i]===')'){ d--; if(d===0&&i<s.length-1){ ok=false; break; } } } if(!ok) break; s=s.slice(1,-1).trim(); } return s; }
+/* une suite « 400m - r' 200m FL » ou « 150m - r' 50m marche - 200m - R : 1' » */
+function pSteps(t){ const parts=t.split(/\s+-\s+|\s*-\s*(?=r'|R\s*:)|\s*;\s*/).map(x=>x.trim()).filter(Boolean); const steps=[];
+  for(let x of parts){ x=pStrip(x); let m;
+    if(m=x.match(/^r'\s*:?\s*(\S+)\s*(.*)$/i)||x.match(/^R\s*:\s*(\S+)\s*(.*)$/)||x.match(/^r[ée]cup\w*\s*:?\s*(\S+)\s*(.*)$/i)){
+      const a=pAmount(m[1]); if(!a) return null; const mod=deacc(m[2]||'').toLowerCase();
+      steps.push({p:'rec',g:a,mod:/tps|temps/.test(mod)&&/eff/.test(mod)?'eff':/march/.test(mod)?'walk':/fl|footing|trot/.test(mod)?'fl':''}); }
+    else { const a=pAmount(x.split(' ')[0]); if(!a) return null; steps.push({p:'work',g:a}); } }
+  return steps.length&&steps.some(s=>s.p==='work')?steps:null; }
+/* cœur d'une série : « 4 x 400m - r' 200m FL », « 4 x (150m - …) », « 5' (30'' FL / 45'' VMA », « 3 x 5' - r'2'30'' » */
+function pCore(c){ c=pStrip(c).replace(/^\(([^()]*)\)\s*(?=r'|R\s*:)/,'$1 - '); let m;
+  if(m=c.match(/^(\S+)\s*\(?\s*(\S+)\s*(footing lent|footing|fl|trot|r[ée]cup\w*)\s*\/\s*(\S+)\s*(vma|vite)?\s*\)?$/i)){
+    const T=pDur(m[1]), a=pDur(m[2]), b=pDur(m[4]); if(T&&a&&b) return {iter:Math.max(1,Math.round(T/(a+b))),steps:[{p:'rec',g:['time',a],mod:'fl'},{p:'work',g:['time',b]}]}; }
+  if(m=c.match(/^(\d+)\s*x\s*(.+)$/i)){ const st=pSteps(pStrip(m[2])); if(st) return {iter:+m[1],steps:st}; }
+  const st=pSteps(c); if(st) return {iter:1,steps:st};
+  return null; }
+/* ligne de séance → structure indépendante de la VMA */
+function pParse(raw){ const s=pNorm(raw); if(!s) return null; const L=deacc(s).toLowerCase();
+  if(/^repos\b/.test(L)&&s.length<30) return {kind:'rest'};
+  const pct=s.match(/(\d{2,3})\s*%\s*(?:-|a|à)\s*(\d{2,3})\s*%/i)||s.match(/(\d{2,3})\s*%/);
+  const p1=pct?+pct[1]:null, p2=pct&&pct[2]?+pct[2]:p1;
+  let m;
+  if(m=L.match(/^(footing|sortie longue|sl|endurance|footing lent|eb|ef)\b\s*:?\s*(\d+h\d{0,2}'?|\d+\s*'|\d+\s*min)/)){
+    const dur=pDur(m[2].replace(/\s/g,'')); if(dur) return {kind:'easy',label:m[1].startsWith('sortie')||m[1]==='sl'?'Sortie longue':'Footing',dur,p1:p1||65,p2:p2||75}; }
+  if(m=s.match(/^(VMA|seuil|AS\d*|allure sp[ée]cifique|tempo|fractionn[ée]|c[ôo]tes?|fartlek|piste)\b[^:]*:\s*(.+)$/i)){
+    const head=m[1], info=[]; let b=pInfo(pBalance(m[2]),info); let between=null, n=1, mm;
+    // récup entre séries : dernier « R : x » hors parenthèses
+    let d=0, pos=-1; for(let i=0;i<b.length;i++){ const ch=b[i]; if(ch==='(') d++; else if(ch===')') d--; else if(d===0&&b[i]==='R'&&/^R\s*:/.test(b.slice(i))) pos=i; }
+    if(pos>=0){ const t=b.slice(pos).match(/^R\s*:\s*(\S+)(\s*entre les s[ée]ries)?/); between=t?pDur(t[1]):null; if(between) b=(b.slice(0,pos)+b.slice(pos+t[0].length)).trim(); }
+    if(mm=b.match(/^(\d+)\s*s[ée]ries?\s*(?:de\s*)?(.*)$/i)){ n=+mm[1]; b=mm[2].trim(); }
+    b=b.replace(/\s*-\s*$/,'').trim();
+    const core=pCore(b);
+    if(core&&p1) return {kind:'quality',head:head.toUpperCase()==='VMA'?'VMA':head.charAt(0).toUpperCase()+head.slice(1).toLowerCase(),p1,p2,n,between,core,info}; }
+  return {kind:'free'}; }
+
+/* ---- lecture des fichiers ---- */
+async function unzipText(buf,name){ const dv=new DataView(buf); let e=buf.byteLength-22; while(e>=0&&dv.getUint32(e,true)!==0x06054b50) e--; if(e<0) throw new Error('zip');
+  const n=dv.getUint16(e+10,true); let p=dv.getUint32(e+16,true);
+  for(let i=0;i<n;i++){ const comp=dv.getUint16(p+10,true), cs=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), xl=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), lo=dv.getUint32(p+42,true);
+    const fn=new TextDecoder().decode(new Uint8Array(buf,p+46,nl));
+    if(fn===name){ const data=new Uint8Array(buf,lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true),cs);
+      if(comp===0) return new TextDecoder().decode(data);
+      const out=await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer(); return new TextDecoder().decode(out); }
+    p+=46+nl+xl+cl; }
+  throw new Error('nodoc'); }
+async function readDocx(buf){ const xml=await unzipText(buf,'word/document.xml'); const doc=new DOMParser().parseFromString(xml,'application/xml');
+  const ptext=pp=>{ let t=''; for(const el of pp.getElementsByTagName('*')){ if(el.tagName==='w:t') t+=el.textContent; else if(el.tagName==='w:tab'||el.tagName==='w:br') t+=' '; } return t; };
+  const rows=[]; const head=[];
+  for(const tr of doc.getElementsByTagName('w:tr')){ const cells=[]; for(const tc of tr.childNodes){ if(tc.tagName!=='w:tc') continue; cells.push([...tc.getElementsByTagName('w:p')].map(ptext).join(' ').trim()); } rows.push(cells); }
+  for(const pp of doc.getElementsByTagName('w:p')){ let x=pp.parentNode, inT=false; while(x){ if(x.tagName==='w:tc'){ inT=true; break; } x=x.parentNode; } if(!inT) head.push(ptext(pp)); }
+  return {rows,head:head.join(' ')}; }
+async function loadPdfJs(){ if(window.pdfjsLib) return window.pdfjsLib; await new Promise((ok,ko)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'; s.onload=ok; s.onerror=()=>ko(new Error('pdfjs')); document.head.appendChild(s); });
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; return window.pdfjsLib; }
+async function readPdf(buf){ const lib=await loadPdfJs(); const pdf=await lib.getDocument({data:new Uint8Array(buf)}).promise; const items=[];
+  for(let i=1;i<=pdf.numPages;i++){ const pg=await pdf.getPage(i); const tc=await pg.getTextContent(); for(const it of tc.items) if(it.str&&it.str.trim()) items.push({s:it.str,x:it.transform[4],y:it.transform[5],pg:i}); }
+  return pdfRows(items); }
+/* PDF : on reconstitue les lignes du tableau (colonne jour / colonne séance) */
+function pdfRows(items){ const lines=[];
+  items.sort((a,b)=>a.pg-b.pg||b.y-a.y||a.x-b.x);
+  for(const it of items){ const l=lines.find(l=>l.pg===it.pg&&Math.abs(l.y-it.y)<3); if(l) l.it.push(it); else lines.push({pg:it.pg,y:it.y,it:[it]}); }
+  lines.forEach(l=>l.it.sort((a,b)=>a.x-b.x));
+  const dayRe=new RegExp('^('+PDAYS.join('|')+')\\b','i'); const xs=[];
+  lines.forEach(l=>{ const i=l.it.findIndex(t=>dayRe.test(deacc(t.s.trim()))); if(i>=0){ const nxt=l.it.slice(i+1).find(t=>!/^\s*(\d{1,2}|er|\d{1,2}\/\d{1,2})\s*$/i.test(t.s)); if(nxt) xs.push(nxt.x); } });
+  xs.sort((a,b)=>a-b); const colX=xs.length?xs[Math.floor(xs.length/2)]-4:200;
+  const anchors=[], conts=[], head=[];
+  for(const l of lines){ const left=l.it.filter(t=>t.x<colX).map(t=>t.s).join(' ').trim(), right=l.it.filter(t=>t.x>=colX).map(t=>t.s).join(' ').trim();
+    if(dayRe.test(deacc(left))) anchors.push({pg:l.pg,y:l.y,label:left,parts:right?[{y:l.y,t:right}]:[]});
+    else if(right||left){ const t=(left+' '+right).trim(), dt=deacc(t).toLowerCase();
+      if(new RegExp('^('+PMONTHS.join('|')+')\\s*\\d{4}$').test(dt)||/^[A-ZÀ-Ý][A-ZÀ-Ý' -]{1,25}$/.test(t)) head.push(t); else conts.push({pg:l.pg,y:l.y,t}); } }
+  for(const c of conts){ let best=null, bd=1e9; for(const a of anchors){ if(a.pg!==c.pg) continue; const d=Math.abs(a.y-c.y); if(d<bd){ bd=d; best=a; } }
+    if(best&&bd<40) best.parts.push({y:c.y,t:c.t}); else head.push(c.t); }
+  return {rows:anchors.map(a=>[a.label,a.parts.sort((p,q)=>q.y-p.y).map(p=>p.t).join(' ')]),head:head.join(' ')}; }
+
+/* ---- lignes → dates ---- */
+function planFromRows(R,fileName){ const all=pNorm([R.head,...R.rows.map(r=>r.join(' ')),fileName||''].join(' ')); const dA=deacc(all).toLowerCase();
+  const dayRe=new RegExp('^('+PDAYS.join('|')+')\\s*0?\\s*(\\d{1,2})\\s*(?:er|e)?\\b(?:\\s*\\/\\s*(\\d{1,2}))?\\s*(.*)$','i');
+  const ent=[]; let last=null;
+  for(const r of R.rows){ const cells=r.map(pNorm); const joined=cells.filter(Boolean).join(' '); if(!joined) continue;
+    const m=deacc(joined).match(dayRe);
+    if(m){ const lab=deacc(cells[0]||'').match(dayRe); let text=lab?cells.slice(1).filter(Boolean).join(' '):joined.slice(joined.length-m[4].length);
+      if(lab&&lab[4]) text=(lab[4]+' '+text).trim(); text=text.replace(/^(er|e)\b\s*/i,'');
+      last={wd:PDAYS.indexOf(m[1].toLowerCase()),d:+m[2],mo:m[3]?+m[3]:null,text}; ent.push(last); }
+    else if(last&&!/^(\d{4}|[a-z]+ \d{4})$/i.test(deacc(joined))&&!PMONTHS.some(x=>deacc(joined).toLowerCase()===x)) last.text=(last.text+' '+joined).trim(); }
+  if(!ent.length) return null;
+  // mois / année : en-tête, sinon on cherche le mois cohérent avec les jours de la semaine
+  const mh=dA.match(new RegExp('('+PMONTHS.join('|')+')\\s*(\\d{4})')); const today=new Date();
+  const cands=[]; if(mh) cands.push([+mh[2],PMONTHS.indexOf(mh[1])]);
+  for(let k=-2;k<=4;k++){ const d=new Date(today.getFullYear(),today.getMonth()+k,1); cands.push([d.getFullYear(),d.getMonth()]); }
+  const place=(y,m0)=>{ let y1=y, m=m0, prev=0; const out=[]; let ok=0;
+    for(const e of ent){ if(e.mo){ const mm=e.mo-1; if(mm<m&&m-mm>6) y1++; m=mm; } else if(e.d<prev) { m++; if(m>11){ m=0; y1++; } } prev=e.d;
+      const dt=new Date(y1,m,e.d); if(dt.getMonth()!==m) return null; if(e.wd>=0&&wd(dt)===e.wd) ok++; out.push(Object.assign({date:ymd(dt)},e)); }
+    return {out,ok}; };
+  let best=null; for(const [y,m] of cands){ const r=place(y,m); if(r&&(!best||r.ok>best.ok)) best=r; if(r&&r.ok===ent.length) break; }
+  if(!best) return null;
+  const label=mh?(mh[1].charAt(0).toUpperCase()+mh[1].slice(1)+' '+mh[2]):(fileName||'Plan');
+  return {label,ents:best.out,coherent:best.ok/ent.length}; }
+
+/* ---- séance de l'appli à partir d'une ligne importée ---- */
+function plSpeed(data,pct){ return (+data.profile.vma||13.5)*pct/100; }
+function plPace(data,pct){ return 3600/plSpeed(data,pct); }
+const fD=s=>{ s=Math.round(s); return s>=3600?Math.floor(s/3600)+'h'+pad2(Math.round(s%3600/60)):s>=60?Math.floor(s/60)+"'"+(s%60?pad2(s%60)+"''":''):s+"''"; };
+const fG=g=>g[0]==='dist'?(g[1]>=1000?String(g[1]/1000).replace('.',',')+' km':g[1]+' m'):fD(g[1]);
+function planSession(it,data,dk,idx){ const by=it.by||'moi', title='Séance '+by+(idx?' ('+(idx+1)+')':''); const P=it.p||{kind:'free'};
+  const orig={h:'Texte du plan importé',l:[it.raw]};
+  const base={cat:'run',imported:true,impId:it.imp,raw:it.raw,title,orig:dk,key:dk+'|'+title};
+  if(P.kind==='easy'){ const pm=(P.p1+P.p2)/2, pace=plPace(data,pm);
+    return Object.assign(base,{type:P.label,sum:P.label+' '+fD(P.dur)+' · '+P.p1+'–'+P.p2+' % VMA · '+fmtPaceSec(plPace(data,P.p1))+'–'+fmtPaceSec(plPace(data,P.p2))+'/km',dur:Math.round(P.dur/60),
+      wk:{warm:false,blocks:[{iter:1,steps:[{p:'work',g:['time',P.dur],pace}]}]},
+      blocks:[{h:'Séance de '+by,l:[P.label+' '+fD(P.dur)+' à '+P.p1+'–'+P.p2+' % de ta VMA : '+fmtPaceSec(plPace(data,P.p1))+' à '+fmtPaceSec(plPace(data,P.p2))+'/km ‹'+v1(plSpeed(data,P.p1))+'–'+v1(plSpeed(data,P.p2))+' km/h›']},orig]}); }
+  if(P.kind==='quality'){ const pm=(P.p1+P.p2)/2, pace=plPace(data,pm), sp=plSpeed(data,pm)/3.6, slow=plSpeed(data,60)/3.6;
+    const tOf=st=>st.g[0]==='time'?st.g[1]:st.g[1]/(st.p==='work'?sp:st.mod==='walk'?1.4:slow);
+    const C=P.core, steps=[]; let lastWork=null;
+    for(const st of C.steps){ if(st.p==='work'){ const x={p:'work',g:st.g,pace}; steps.push(x); lastWork=x; } else { const x={p:'rec',g:st.g}; if(st.mod==='eff'&&lastWork) x.effT=tOf(lastWork); steps.push(x); } }
+    const blocks=[]; for(let s=0;s<P.n;s++){ blocks.push({iter:C.iter,steps}); if(P.between&&s<P.n-1) blocks.push({iter:1,steps:[{p:'rec',g:['time',P.between]}]}); }
+    const body=(P.n*C.iter*steps.reduce((a,st)=>a+tOf(st),0)+(P.n-1)*(P.between||0))/60;
+    const descStep=st=>st.p==='work'?fG(st.g)+(st.g[0]==='dist'?' en '+fD(st.g[1]/sp):'')+' à '+fmtPaceSec(pace)+'/km'
+      :'récup '+fG(st.g)+(st.effT?' dans le temps de l\'effort (≈ '+fD(st.effT)+')':C.steps.find(x=>x===st)?.mod==='walk'?' en marchant':'')+'';
+    const recMods=C.steps.filter(s=>s.p==='rec').map(s=>s.mod);
+    const lines=[(P.n>1?P.n+' séries de ':'')+(C.iter>1?C.iter+' × ':'')+'('+steps.map((st,i)=>{ const m=C.steps[i].mod; return st.p==='work'?descStep(st):'récup '+fG(st.g)+(m==='eff'?' dans le temps de l\'effort (≈ '+fD(st.effT||0)+')':m==='walk'?' en marchant':m==='fl'?' en footing lent':''); }).join(', ')+')',
+      'Allure : '+P.p1+(P.p2!==P.p1?'–'+P.p2:'')+' % de ta VMA, soit '+fmtPaceSec(pace)+'/km ‹'+v1(plSpeed(data,pm))+' km/h›'];
+    if(P.between) lines.push('Récupération entre les séries : '+fD(P.between));
+    if(P.info&&P.info.length) lines.push('Repères du plan (pour la VMA de l\'auteur) : '+P.info.join(' · '));
+    const short=(P.n>1?P.n+' × ':'')+(C.iter>1?C.iter+' × ':'')+(C.steps.filter(s=>s.p==='work').map(s=>fG(s.g)).join(' + '));
+    return Object.assign(base,{type:P.head,q:true,sum:P.head+' '+P.p1+(P.p2!==P.p1?'–'+P.p2:'')+' % · '+short,dur:Math.round(30+body),
+      wk:{warm:true,warmStep:{g:['open',0]},cool:true,coolStep:{g:['open',0]},blocks},
+      blocks:[{h:'Échauffement',l:["20' footing en endurance (étape libre sur la montre)"]},{h:'Séance de '+by,l:lines},{h:'Retour au calme',l:["10' footing lent (étape libre sur la montre)"]},orig]}); }
+  return Object.assign(base,{type:'À vérifier',warn:true,sum:'⚠ à vérifier · '+it.raw.slice(0,60),dur:60,wk:null,blocks:[{h:'⚠ Séance à vérifier',l:['L\'appli n\'a pas su lire cette ligne : utilise « Modifier la séance prévue » pour la compléter.']},orig]}); }
+
+/* ---- insertion dans le programme ---- */
+function applyPlan(r,data,ws){ const imps=data.imports; if(!imps||!imps.length) return r; const P=data.plan||{}, U=data.useApp||{};
+  for(let i=0;i<7;i++){ const dk=ymd(addDays(ws,i)); if(!imps.some(m=>dk>=m.from&&dk<=m.to)) continue;
+    const day=r.days[i], items=(P[dk]||[]).filter(x=>x.p&&x.p.kind!=='rest'), imp=items.map((it,j)=>planSession(it,data,dk,j));
+    const appRuns=day.filter(s=>s.cat==='run'&&!s.custom&&!s.imported);
+    if(U[dk]&&imp.length){ appRuns.forEach(s=>{ s.planAlt=imp.map(x=>x.sum); s.planBy=imp[0].title; }); continue; }
+    imp.forEach(s=>{ s.appAlt=appRuns.map(a=>({title:a.title,sum:a.sum})); });
+    r.days[i]=day.filter(s=>!(s.cat==='run'&&!s.custom&&!s.imported)).concat(imp); }
+  return r; }
+
+/* ---- import ---- */
+async function planImport(file){ const by=activeAth().name; let R;
+  try{ const buf=await file.arrayBuffer(); const isPdf=/\.pdf$/i.test(file.name)||new Uint8Array(buf,0,4).join()==='37,80,68,70';
+    R=isPdf?await readPdf(buf):await readDocx(buf); }
+  catch(e){ console.error(e); toast(/pdfjs/.test(e&&e.message)?'Lecteur PDF indisponible : vérifie ta connexion internet':'Fichier illisible : choisis un Word (.docx) ou un PDF texte'); return; }
+  const pl=planFromRows(R,file.name.replace(/\.\w+$/,'')); if(!pl||!pl.ents.length){ toast('Aucune séance trouvée : le fichier doit lister les jours (« Mardi 03 … »)'); return; }
+  const id='i'+Date.now(), dates=pl.ents.map(e=>e.date).sort(), from=dates[0], to=dates[dates.length-1];
+  S.plan=S.plan||{}; S.imports=S.imports||[]; S.useApp=S.useApp||{};
+  // un nouvel import remplace l'ancien sur les mêmes jours
+  for(const dk of Object.keys(S.plan)) if(dk>=from&&dk<=to) delete S.plan[dk];
+  for(const dk of Object.keys(S.useApp)) if(dk>=from&&dk<=to) delete S.useApp[dk];
+  S.imports=S.imports.filter(m=>!(m.from>=from&&m.to<=to)).map(m=>m.from<from&&m.to>=from?Object.assign({},m,{to:ymd(addDays(parseD(from),-1))}):m.to>to&&m.from<=to?Object.assign({},m,{from:ymd(addDays(parseD(to),1))}):m);
+  let n=0, warn=0;
+  for(const e of pl.ents){ const p=pParse(e.text); if(!p||p.kind==='rest') continue; (S.plan[e.date]=S.plan[e.date]||[]).push({imp:id,raw:pNorm(e.text),p,by}); n++; if(p.kind==='free') warn++; }
+  S.imports.push({id,label:pl.label,file:file.name,by,at:new Date().toISOString(),from,to,n,warn});
+  save(); cur=new Date(parseD(from).getFullYear(),parseD(from).getMonth(),1); view='plan'; render(); window.scrollTo(0,0);
+  toast(n+' séance'+(n>1?'s':'')+' importée'+(n>1?'s':'')+(warn?' · '+warn+' à vérifier':'')+' ('+pl.label+')');
+  if(pl.coherent<0.8) setTimeout(()=>toast('Attention : jours et dates du fichier ne correspondent pas tous, vérifie le mois'),2600); }
+function planRemove(id){ const m=(S.imports||[]).find(x=>x.id===id); if(!m) return; S.imports=S.imports.filter(x=>x.id!==id);
+  for(const [dk,L] of Object.entries(S.plan||{})){ const k=L.filter(x=>x.imp!==id); if(k.length) S.plan[dk]=k; else delete S.plan[dk]; }
+  for(const dk of Object.keys(S.useApp||{})) if(dk>=m.from&&dk<=m.to) delete S.useApp[dk];
+  save(); render(); toast('Import « '+m.label+' » retiré'); }
+function planBarHTML(){ const L=(S.imports||[]).slice().sort((a,b)=>a.from<b.from?-1:1);
+  return `<div class="card impbar"><div class="row between" style="gap:8px"><div class="small"><b>Plan importé</b><br><span class="mut">Word (.docx) ou PDF : les séances de course remplacent celles de l'appli</span></div>
+    <label class="btn sm" style="flex:none">Importer un plan<input type="file" id="planfile" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></label></div>
+    ${L.length?`<div style="margin-top:8px">${L.map(m=>`<div class="gline"><span class="tx" style="color:var(--ink)">📄 <b>${esc(m.label)}</b> · ${m.n} séance${m.n>1?'s':''}${m.warn?' · <span style="color:var(--ev-amb)">'+m.warn+' à vérifier</span>':''} <span class="mut">(${parseD(m.from).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} → ${parseD(m.to).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})})</span></span><button class="btn ghost sm" data-pldel="${m.id}">Retirer</button></div>`).join('')}</div>`:''}</div>`; }
+function planAltHTML(s){ const dk=s.orig||String(s.key).slice(0,10);
+  if(s.imported) return `<details class="fd"><summary>💡 Suggestion de l'appli pour ce jour</summary><div class="in">${s.appAlt&&s.appAlt.length?s.appAlt.map(a=>`<p class="small" style="margin:0 0 6px"><b>${esc(a.title)}</b><br><span class="mut">${rich(a.sum||'')}</span></p>`).join(''):'<p class="small mut">Pas de séance de course prévue par l\'appli ce jour-là.</p>'}
+    ${s.appAlt&&s.appAlt.length?`<button class="btn sm" data-useapp="${dk}">Faire la séance de l'appli à la place</button>`:''}</div></details>`;
+  if(s.planAlt) return `<div class="ev att" style="margin-top:10px"><b>${esc(s.planBy)} disponible ce jour</b>${s.planAlt.map(esc).join('<br>')}<div style="margin-top:8px"><button class="btn sm" data-useplan="${dk}">Revenir à ${esc(s.planBy)}</button></div></div>`;
+  return ''; }
+document.addEventListener('change',e=>{ if(e.target.id!=='planfile') return; const f=e.target.files[0]; e.target.value=''; if(f) planImport(f); });
+document.addEventListener('click',e=>{ let t;
+  if(t=e.target.closest('[data-pldel]')){ if(!t.dataset.sure){ t.dataset.sure=1; t.textContent='Confirmer'; return; } planRemove(t.dataset.pldel); return; }
+  if(t=e.target.closest('[data-useapp]')){ S.useApp=S.useApp||{}; S.useApp[t.dataset.useapp]=true; closeModal(); save(); render(); toast('Séance de l\'appli retenue pour ce jour'); return; }
+  if(t=e.target.closest('[data-useplan]')){ delete (S.useApp||{})[t.dataset.useplan]; closeModal(); save(); render(); toast('Séance du plan importé rétablie'); return; }
+});
 
 /* ---------- démarrage ---------- */
 (async()=>{ if(GROUP_OK&&gWanted()){ gStart(); return; }

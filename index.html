@@ -483,7 +483,7 @@ function makeEngine(S,H){ H=H||{};
     return {cat:'run',type:'Sortie longue',title,sum:dur+"' · "+hrR(65,75),dur,wk:{warm:false,blocks:[{iter:1,steps:[{p:'work',g:['time',dur*60],hr:[hr(65),hr(75)]}]}]},blocks:[{h:'Séance',l}]};
   }
   /* ----- règles v2 (à partir du 23/11/2026) : seuil débutant plus court, côtes limitées à la côte disponible ----- */
-  const V2FROM='2026-11-23'; let V2=false; const DEB=P.level==='debutant';
+  const V2FROM='2026-11-18'; let V2=false; const DEB=P.level==='debutant';
   const HMAX=()=>P.hillMax!=null?+P.hillMax:60;
   const SEUIL_DEB=[
     m=>({t:"Seuil · 4 × 3'",l:[reps(4,{t:180},85,"1'30 trot",m)],mm:16.5,fix:true}),
@@ -646,7 +646,13 @@ function makeEngine(S,H){ H=H||{};
   }
 
   /* ----- semaine ----- */
-  function buildWeek(ws){ V2=ymd(ws)>=V2FROM;
+  function buildWeek(ws){ const end=ymd(addDays(ws,6)), st=ymd(ws);
+    if(st>=V2FROM||end<V2FROM){ V2=st>=V2FROM; return buildWeek0(ws); }
+    // semaine de bascule : jours avant la date avec les anciennes règles, ensuite les nouvelles
+    V2=false; const a=buildWeek0(ws); V2=true; const b=buildWeek0(ws); const r=Object.assign({},b,{days:{},qRaw:{}});
+    for(let i=0;i<7;i++){ const nw=ymd(addDays(ws,i))>=V2FROM, src=nw?b:a; r.days[i]=src.days[i]; if(src.qRaw&&src.qRaw[i]) r.qRaw[i]=src.qRaw[i]; }
+    return r; }
+  function buildWeek0(ws){
     let c=weekCtx(ws); const C0=c, Av=P.avail, maxR=Math.max(1,+P.maxRun||4);
     const iw=isoWeek(ws), out={}; for(let i=0;i<7;i++) out[i]=[];
     const ph=c.phase;
@@ -1158,7 +1164,7 @@ function profView(){
   <div class="toggle" style="margin-top:6px"><span>Mixer dans la semaine : 1re séance sur le terrain de la semaine, 2e sur l'autre</span><button class="sw ${P.mixWeek?'on':''}" data-tog="mixWeek" aria-label="Mixer dans la semaine"></button></div></div>
 
   <div class="card sec"><h3>Côtes</h3><label class="f" style="margin-top:0">Ta côte la plus longue près de chez toi (temps de montée)</label><div class="seg">${[[0,'Aucune'],[30,'30"'],[60,"1'"],[120,"2'"],[300,"3' et +"]].map(([n,l])=>`<button class="${(P.hillMax!=null?+P.hillMax:60)===n?'on':''}" data-hmax="${n}">${l}</button>`).join('')}</div>
-  <p class="hint">Les séances de côtes s'adaptent : répétitions plus courtes et plus nombreuses si ta côte est courte, séances sur le plat si tu n'en as pas. S'applique à partir du 23 novembre.</p></div>
+  <p class="hint">Les séances de côtes s'adaptent : répétitions plus courtes et plus nombreuses si ta côte est courte, séances sur le plat si tu n'en as pas. S'applique à partir du 18 novembre.</p></div>
   <div class="card sec"><h3>Préférences de séances</h3><div class="toggle" style="margin-bottom:10px"><span class="small">Avec un plan importé, afficher aussi la séance proposée par l'appli (carte grisée)</span><button class="sw ${P.noAppSugg?'':'on'}" data-tog="noAppSugg" aria-label="Suggestion de l'appli"></button></div><p class="hint" style="margin-top:0">Remplace automatiquement un type de séance par une alternative. Chaque séance garde son bouton « Changer » pour revenir en arrière.</p>
   ${Object.entries(EN.PREFS).map(([ty,ids])=>`<label class="f">${esc(ty)}</label><div class="pills">${['',...ids].map(id=>`<button class="${(P.prefs||{})[ty]===id||(!id&&!(P.prefs||{})[ty])?'on':''}" data-pref="${esc(ty)}|${id}">${id?esc(EN.ALTL[id]):'Garder'}</button>`).join('')}</div>`).join('')}</div>
 
@@ -2513,7 +2519,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261117183638';
+const BUILD='20261117184249';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

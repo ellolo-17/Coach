@@ -482,12 +482,36 @@ function makeEngine(S,H){ H=H||{};
     if(!c.target && c.phase==='Foncier') l.push('Sur terrain plat ou vallonné, régularité avant tout');
     return {cat:'run',type:'Sortie longue',title,sum:dur+"' · "+hrR(65,75),dur,wk:{warm:false,blocks:[{iter:1,steps:[{p:'work',g:['time',dur*60],hr:[hr(65),hr(75)]}]}]},blocks:[{h:'Séance',l}]};
   }
+  /* ----- règles v2 (à partir du 23/11/2026) : seuil débutant plus court, côtes limitées à la côte disponible ----- */
+  const V2FROM='2026-11-23'; let V2=false; const DEB=P.level==='debutant';
+  const HMAX=()=>P.hillMax!=null?+P.hillMax:60;
+  const SEUIL_DEB=[
+    m=>({t:"Seuil · 4 × 3'",l:[reps(4,{t:180},85,"1'30 trot",m)],mm:16.5,fix:true}),
+    m=>({t:"Seuil · 6 × 2'",l:[reps(6,{t:120},86,"1' trot",m)],mm:17,fix:true}),
+    m=>({t:"Seuil · 5 × 3'",l:[reps(5,{t:180},85,"1'30 trot",m)],mm:21,fix:true}),
+    m=>({t:"Seuil · 4 × 4'",l:[reps(4,{t:240},85,"2' trot",m)],mm:22,fix:true}),
+  ];
+  const fmtS=x=>x>=60?Math.floor(x/60)+"'"+(x%60?String(x%60).padStart(2,'0'):''):x+'"';
+  function hillSpec(n,d,intens,title,extra){ const H=HMAX(); let nn=n, dd=d;
+    if(d>H){ dd=H; nn=Math.min(16,Math.max(n,Math.round(n*d/H*0.75))); }
+    const seuil=intens==='seuil', st={p:'work',g:['time',dd]}; if(seuil) st.hr=[hr(84),hr(88)];
+    return {wk:[{iter:nn,steps:[st,{p:'rec',g:['open',0]}]}],mm:Math.round(nn*dd*2/60+2),t:dd<d?title+' · '+nn+' × '+fmtS(dd):title,
+      l:[nn+' × '+fmtS(dd)+' en côte '+(seuil?'à intensité seuil ('+hrR(84,88)+')':'à intensité VMA')+', récup = redescente en trot'].concat(dd<d?['Adapté à ta côte la plus longue (≈ '+fmtS(H)+') : plus de répétitions, plus courtes']:[]).concat(extra||[]),fix:true}; }
+  const COTES_V2=[
+    ()=>hillSpec(N_(8),45,'vma','Côtes courtes',['Buste droit, bras actifs, pose avant-pied']),
+    ()=>hillSpec(N_(4),180,'seuil','Côtes longues',['Si pente > 15 % : marche active, mains sur les cuisses']),
+    ()=>{ const x=hillSpec(N_(5),90,'vma','Côtes + descentes',['Descente rapide relâchée : petits pas rapides, regard loin']); return x; },
+    ()=>hillSpec(N_(2),480,'seuil','Côtes longues seuil',['Alterne course et marche active selon la pente, sans dépasser la FC cible']),
+  ];
   function quality(kind,c,idx){
-    const m=c.mode; const lib={VMAC,VMAL,SEUIL,COTES}[kind]; const run=f=>{ COL=[]; const x=f(m); if(!x.wk) x.wk=toBlocks(COL); COL=null; return x; }; let s=run(lib[idx%lib.length]); const sc=x=>{ x.mm=x.mm*(kind==='COTES'?LVL.f:LVL.f); return x; }; sc(s);
+    if(V2){ if(kind==='COTES'&&HMAX()<=0) kind='SEUIL';
+      if(kind==='COTES'&&DEB) idx=[0,2,0,2][((idx%4)+4)%4];
+      if(kind==='COTES'&&!DEB&&((idx%4)+4)%4===3&&HMAX()<240) return quality('SEUIL',c,2); }
+    const m=c.mode; const lib=V2&&kind==='SEUIL'&&DEB?SEUIL_DEB:V2&&kind==='COTES'?COTES_V2:{VMAC,VMAL,SEUIL,COTES}[kind]; const run=f=>{ COL=[]; const x=f(m); if(!x.wk) x.wk=toBlocks(COL); COL=null; return x; }; let s=run(lib[idx%lib.length]); const sc=x=>{ if(!x.fix) x.mm=x.mm*LVL.f; return x; }; sc(s);
     if(15+s.mm+5>CAP){ let best=s; for(const f of lib){ const x=sc(run(f)); if(x.mm<best.mm) best=x; } s=best; }
     let w=20,cl=10; if(w+s.mm+cl>CAP){ w=15; cl=5; }
     const hill=kind==='COTES'; const typ={VMAC:'VMA courte',VMAL:'VMA longue',SEUIL:'Seuil',COTES:'Côtes'}[kind];
-    const terrain= hill?'Côte de 150–400 m' : (m==='piste'?'Sur piste (400 m)':'Sur route/chemin plat, montre GPS en mode intervalles');
+    const terrain= hill?(V2&&HMAX()<120?'Côte d\'environ '+fmtS(HMAX())+' de montée':'Côte de 150–400 m') : (m==='piste'?'Sur piste (400 m)':'Sur route/chemin plat, montre GPS en mode intervalles');
     return {cat:'run',type:typ,title:s.t,sum:terrain,dur:Math.round((w+s.mm+cl)/5)*5,q:true,qk:kind,qm:m,wk:{warm:true,blocks:s.wk},
       blocks:[{h:'Échauffement',l:[hill?WARM_HILL(w):WARM(w,kind==='VMAC'||kind==='VMAL')]},{h:'Corps de séance · '+terrain,l:s.l},{h:'Retour au calme',l:[COOL(cl)]}]};
   }
@@ -573,7 +597,7 @@ function makeEngine(S,H){ H=H||{};
       blocks:[{h:'Échauffement',l:[hill?WARM_HILL(w):WARM(w)]},{h:'Corps de séance',l:lines},{h:'Retour au calme',l:[COOL(cl)]}]}; }
   const ALT={
     fartlek:{l:'Fartlek nature',why:'Même zone que le seuil, mais au feeling sur chemin : changements d\'allure sans chrono.',make:c=>customQ('Seuil','Fartlek nature','Au feeling, sur chemin',["6 × (2' soutenu + 1'30 souple), sur chemin ou en nature",'Partie soutenue : « dur mais contrôlé », '+hrR(84,88),'Repère allure : '+pace(kmh(85)),'Laisse le terrain décider : accélère dans les faux-plats, relâche dans les descentes'],21,[{iter:6,steps:[{p:'work',g:['time',120],hr:[hr(84),hr(88)]},{p:'rec',g:['time',90]}]}])},
-    tempo:{l:'Tempo progressif',why:'Un seul bloc qui accélère doucement : on finit au seuil sans le subir longtemps.',make:c=>customQ('Seuil','Tempo progressif',"24' en 3 paliers",["24' continu en 3 paliers de 8', sans arrêt :","8' à "+pace(kmh(78)),"8' à "+pace(kmh(82)),"8' à "+pace(kmh(86))+' · '+hrR(84,88)],24,[{iter:1,steps:[{p:'work',g:['time',480],pace:3600/kmh(78)},{p:'work',g:['time',480],pace:3600/kmh(82)},{p:'work',g:['time',480],pace:3600/kmh(86)}]}])},
+    tempo:{l:'Tempo progressif',why:'Un seul bloc qui accélère doucement : on finit au seuil sans le subir longtemps.',make:c=>{ const q=V2&&DEB?5:8; return customQ('Seuil','Tempo progressif',(3*q)+"' en 3 paliers",[(3*q)+"' continu en 3 paliers de "+q+"', sans arrêt :",q+"' à "+pace(kmh(78)),q+"' à "+pace(kmh(82)),q+"' à "+pace(kmh(86))+' · '+hrR(84,88)],3*q,[{iter:1,steps:[{p:'work',g:['time',q*60],pace:3600/kmh(78)},{p:'work',g:['time',q*60],pace:3600/kmh(82)},{p:'work',g:['time',q*60],pace:3600/kmh(86)}]}]); }},
     cotesSeuil:{l:'Côtes longues au seuil',why:'Même intensité, mais en montée : moins monotone et plus doux pour les articulations.',make:c=>quality('COTES',c,3)},
     courtes:{l:'Fractions courtes au seuil',why:'Des blocs de 2\' : le temps passe plus vite, pour le même travail.',make:c=>{ COL=[]; const t=reps(N_(8),{t:120},87,'45" trot',c.mode); const b=toBlocks(COL); COL=null; return customQ('Seuil','Seuil en fractions courtes · '+N_(8)+' × 2\'',c.mode==='piste'?'Sur piste (400 m)':'Sur route/chemin plat',[t],22,b); }},
     cotesC:{l:'Côtes courtes',why:'La VMA en montée : même effort, moins de chocs.',make:c=>quality('COTES',c,0)},
@@ -593,14 +617,15 @@ function makeEngine(S,H){ H=H||{};
   const PREFS={'Seuil':['fartlek','tempo','cotesSeuil','courtes'],'VMA courte':['cotesC','fartV'],'VMA longue':['cotesL','fartL'],'Côtes':['plat','fartlek']};
   function altsFor(s,c,iw,cap){
     if(s.noAlt||s.cat==='race'||s.cat==='off') return null;
-    const mk=id=>({id,l:ALT[id].l,why:ALT[id].why,make:()=>withCap(cap,()=>ALT[id].make(c,s))});
-    const variant=(id,l,why,f)=>({id,l,why,make:()=>withCap(cap,f)});
+    const v2=V2, keepV=f=>()=>{ const o=V2; V2=v2; try{ return f(); } finally{ V2=o; } };
+    const mk=id=>({id,l:ALT[id].l,why:ALT[id].why,make:keepV(()=>withCap(cap,()=>ALT[id].make(c,s)))});
+    const variant=(id,l,why,f)=>({id,l,why,make:keepV(()=>withCap(cap,f))});
     const ids={'Seuil':['fartlek','tempo','cotesSeuil','courtes'],'VMA courte':['cotesC','fartV'],'VMA longue':['cotesL','fartL'],'Côtes':['plat','fartlek'],
       'Allure spécifique':['specFart','specBloc'],'Spécifique swimrun':['specFart','fartlek'],'Footing':['velo','marche','nageSouple'],'Sortie longue':['randoCourse','veloLong'],'Test VMA':['report']}[s.type];
-    let L=(ids||[]).filter(id=>!(s.type==='Seuil'&&id==='cotesSeuil'&&false)).map(mk);
+    let L=(ids||[]).filter(id=>!(V2&&/^cotes/.test(id)&&(HMAX()<=0||(DEB&&id!=='cotesC')))).map(mk);
     if(s.type==='VMA courte') L.unshift(variant('autre','Autre format de VMA courte','Même objectif, autres répétitions.',()=>quality('VMAC',c,iw+3)));
     if(s.type==='VMA longue') L.unshift(variant('autre','Autre format de VMA longue','Même objectif, autres répétitions.',()=>quality('VMAL',c,iw+2)));
-    if(s.type==='Côtes') L.unshift(variant('autre','Autre séance de côtes','Même objectif, autre format.',()=>quality('COTES',c,iw+1)));
+    if(s.type==='Côtes'&&!(V2&&HMAX()<=0)) L.unshift(variant('autre','Autre séance de côtes','Même objectif, autre format.',()=>quality('COTES',c,iw+1)));
     if(s.type==='Piscine'&&s._li!=null){ const nm=['Technique & endurance','Seuil CSS','Spécifique swimrun','Endurance longue','Vitesse & relances'], why=['Plus de technique, intensité modérée','Travail au seuil (CSS)','Pull-buoy, plaquettes et visée','Volume en endurance','Vitesse et départs'];
       L=[0,1,2,3,4].filter(i=>i!==s._li).map(i=>variant('pool'+i,'Piscine · '+nm[i],why[i],()=>swimPool(c,0,s._ph||'base',i))); }
     if(s.type==='Eau libre'&&s._oi!=null){ L=[0,1,2].filter(i=>i!==s._oi).map(i=>variant('ow'+i,['Eau libre · repères','Eau libre · enchaînements','Eau libre · continu'][i],'Autre séance en eau libre',()=>swimOW(c,i))).concat([variant('pool2','Piscine · Spécifique swimrun','Si l\'eau libre n\'est pas possible',()=>swimPool(c,0,'spe',2))]); }
@@ -621,7 +646,7 @@ function makeEngine(S,H){ H=H||{};
   }
 
   /* ----- semaine ----- */
-  function buildWeek(ws){
+  function buildWeek(ws){ V2=ymd(ws)>=V2FROM;
     let c=weekCtx(ws); const C0=c, Av=P.avail, maxR=Math.max(1,+P.maxRun||4);
     const iw=isoWeek(ws), out={}; for(let i=0;i<7;i++) out[i]=[];
     const ph=c.phase;
@@ -1117,7 +1142,7 @@ function profView(){
   ${MULTI()&&(!G.on||ADM())?'<div style="margin-top:12px"><button class="btn ghost sm danger" id="adel">Supprimer ce sportif</button></div>':''}
   <div style="margin-top:10px"><button class="btn ghost sm" data-wzopen="1">Assistant de démarrage (VMA, jours, course)</button></div>
   <div class="toggle" style="margin-top:10px"><span class="small">Séances club communes : quand d'autres sportifs ont une séance de qualité le même jour, la même séance pour tous (allures et répétitions de chacun)</span><button class="sw ${P.noClub?'':'on'}" data-tog="noClub" aria-label="Séances club"></button></div></div>
-  <div class="card sec"><h3>VMA</h3><div class="stepper"><button data-vma="1" aria-label="Plus lent">−</button><input class="big" data-p="vma" value="${fmtPaceSec(3600/P.vma)}"><button data-vma="-1" aria-label="Plus rapide">+</button><span class="mut">/km<br><small>${v1(P.vma)} km/h</small></span></div>
+  <div class="card sec"><h3>VMA</h3><div class="stepper"><button data-vma="-0.1" aria-label="Moins rapide">−</button><input class="big" data-p="vmakmh" inputmode="decimal" value="${(Math.round(P.vma*10)/10).toFixed(1).replace('.',',')}"><button data-vma="0.1" aria-label="Plus rapide">+</button><span class="mut">km/h<br><small>${fmtPaceSec(3600/P.vma)}/km</small></span></div>
   <label class="f">Test VMA : distance parcourue (m)</label><div class="grid2"><input class="inp" id="t6" inputmode="numeric" placeholder="Demi-Cooper 6'"><input class="inp" id="t12" inputmode="numeric" placeholder="Cooper 12'"></div>
   <div class="row" style="margin-top:8px"><button class="btn ghost sm" id="tapply">Calculer ma VMA</button></div>
   <p class="hint">Allure VMA = l'allure que tu tiens environ 6' à fond. Saisis ta distance de test : l'appli calcule l'allure. Ton programme de novembre correspond à une allure VMA d'environ 4'27/km (8 × 100 m en 26"). + = plus rapide, − = plus lent (1 s/km).</p></div>
@@ -1132,6 +1157,8 @@ function profView(){
   <div class="seg g2">${[['alt1','1 sem. / 1 sem.'],['alt2','2 sem. / 2 sem.'],['piste','Toujours piste'],['route','Toujours route']].map(([k,l])=>`<button class="${P.vmaMode===k?'on':''}" data-vm="${k}">${l}</button>`).join('')}</div>
   <div class="toggle" style="margin-top:6px"><span>Mixer dans la semaine : 1re séance sur le terrain de la semaine, 2e sur l'autre</span><button class="sw ${P.mixWeek?'on':''}" data-tog="mixWeek" aria-label="Mixer dans la semaine"></button></div></div>
 
+  <div class="card sec"><h3>Côtes</h3><label class="f" style="margin-top:0">Ta côte la plus longue près de chez toi (temps de montée)</label><div class="seg">${[[0,'Aucune'],[30,'30"'],[60,"1'"],[120,"2'"],[300,"3' et +"]].map(([n,l])=>`<button class="${(P.hillMax!=null?+P.hillMax:60)===n?'on':''}" data-hmax="${n}">${l}</button>`).join('')}</div>
+  <p class="hint">Les séances de côtes s'adaptent : répétitions plus courtes et plus nombreuses si ta côte est courte, séances sur le plat si tu n'en as pas. S'applique à partir du 23 novembre.</p></div>
   <div class="card sec"><h3>Préférences de séances</h3><div class="toggle" style="margin-bottom:10px"><span class="small">Avec un plan importé, afficher aussi la séance proposée par l'appli (carte grisée)</span><button class="sw ${P.noAppSugg?'':'on'}" data-tog="noAppSugg" aria-label="Suggestion de l'appli"></button></div><p class="hint" style="margin-top:0">Remplace automatiquement un type de séance par une alternative. Chaque séance garde son bouton « Changer » pour revenir en arrière.</p>
   ${Object.entries(EN.PREFS).map(([ty,ids])=>`<label class="f">${esc(ty)}</label><div class="pills">${['',...ids].map(id=>`<button class="${(P.prefs||{})[ty]===id||(!id&&!(P.prefs||{})[ty])?'on':''}" data-pref="${esc(ty)}|${id}">${id?esc(EN.ALTL[id]):'Garder'}</button>`).join('')}</div>`).join('')}</div>
 
@@ -1231,13 +1258,14 @@ document.addEventListener('click',async e=>{
       const i=S.blocks.findIndex(x=>x.id===bed.id); if(i>=0) S.blocks[i]=bed; else S.blocks.push(bed); save(); closeModal(); render(); toast('Période enregistrée'); return; }
   }
   // profil
-  if(t=e.target.closest('[data-vma]')){ { const sec=Math.round(3600/P.vma)+(+t.dataset.vma); if(sec>=140&&sec<=450) P.vma=3600/sec; } save(); render(); }
+  if(t=e.target.closest('[data-vma]')){ { const v=Math.round((P.vma+(+t.dataset.vma))*10)/10; if(v>=8&&v<=26) P.vma=v; } save(); render(); }
   else if(t=e.target.closest('[data-av]')){ const [k,i]=t.dataset.av.split(':'); const a=P.avail[k], n=+i; P.avail[k]=a.includes(n)?a.filter(x=>x!==n):[...a,n].sort(); save(); render(); }
   else if(t=e.target.closest('[data-wmax]')){ P.weekdayMax=+t.dataset.wmax; save(); render(); }
   else if(t=e.target.closest('[data-max]')){ P.maxRun=+t.dataset.max; save(); render(); }
   else if(t=e.target.closest('[data-vm]')){ P.vmaMode=t.dataset.vm; save(); render(); }
   else if(t=e.target.closest('[data-lr]')){ P.lrDay=t.dataset.lr===''?null:+t.dataset.lr; if(P.lrDay!=null&&!P.avail.run.includes(P.lrDay)) P.avail.run=[...P.avail.run,P.lrDay].sort(); save(); render(); }
   else if(t=e.target.closest('[data-sex]')){ P.sex=t.dataset.sex; save(); render(); }
+  else if(t=e.target.closest('[data-hmax]')){ P.hillMax=+t.dataset.hmax; save(); render(); }
   else if(t=e.target.closest('[data-smin]')){ P.swimMin=+t.dataset.smin; P.swimAllYear=P.swimMin>0; save(); render(); }
   else if(t=e.target.closest('[data-tog]')){ P[t.dataset.tog]=!P[t.dataset.tog]; save(); render(); }
   else if(t=e.target.closest('[data-pref]')){ const [ty,id]=t.dataset.pref.split('|'); P.prefs=Object.assign({},P.prefs); if(id) P.prefs[ty]=id; else delete P.prefs[ty]; save(); render(); }
@@ -1276,6 +1304,7 @@ document.addEventListener('change',e=>{
   if(e.target.dataset.aname){ const v=e.target.value.trim(); if(v){ activeAth().name=v; save(); render(); } return; }
   const k=e.target.dataset.p; if(!k) return; const P=S.profile, v=e.target.value.trim();
   if(k==='vma'){ const x=parseHMS(v); if(x&&x>=140&&x<=450) P.vma=3600/x; }
+  if(k==='vmakmh'){ const x=parseFloat(String(v).replace(',','.')); if(x>=8&&x<=26) P.vma=Math.round(x*10)/10; }
   else if(k==='swim100'||k==='css'){ const s=v?parseHMS(v):null; P[k]= s&&s>40&&s<400?s:null; }
   else P[k]= v?+v:null;
   save(); render();
@@ -2237,7 +2266,7 @@ function gDoImport(){ if(!gImport) return; const L=gImport.list; gImport=null; c
   closeModal(); GATE=false; gAssemble(); refresh(); lastCore=''; save(); view='admin'; render(); toast('Import terminé'); }
 
 /* ---- données ---- */
-const ENGK=['vma','age','sex','level','avail','lrDay','maxRun','weekdayMax','vmaMode','mixWeek','swimAllYear','swimMin','swim100','css','noClub','prefs'];
+const ENGK=['vma','age','sex','level','avail','lrDay','maxRun','weekdayMax','vmaMode','mixWeek','swimAllYear','swimMin','swim100','css','noClub','prefs','hillMax'];
 function pubOf(p){ const eng={}; ENGK.forEach(k=>{ if(p.data.profile[k]!==undefined) eng[k]=p.data.profile[k]; });
   const D=p.data, real={}; Object.entries(D.real||{}).forEach(([k,x])=>{ real[k]={t:x.t,dur:x.dur,km:x.km}; });
   eng.act=JSON.stringify({done:D.done||{},moves:D.moves||{},swaps:D.swaps||{},customs:D.customs||[],edits:D.edits||{},real,plan:D.plan||{},imports:D.imports||[],useApp:D.useApp||{},hidden:D.hidden||{}});
@@ -2421,7 +2450,7 @@ document.addEventListener('click',e=>{ let t;
 },true);
 let PROFTAB='allures';
 const PTABS=[['allures','Allures'],['dispos','Disponibilités'],['nat','Natation'],['prefs','Préférences'],['data','Mes données']];
-const PMAP={'Sportif':'allures','VMA':'allures','Cardio':'allures','Mes zones':'allures','Disponibilités':'dispos','Natation':'nat','Fractionné':'prefs','Préférences de séances':'prefs','Gestes':'prefs','Sauvegarde':'data','Mes données':'data'};
+const PMAP={'Côtes':'prefs','Sportif':'allures','VMA':'allures','Cardio':'allures','Mes zones':'allures','Disponibilités':'dispos','Natation':'nat','Fractionné':'prefs','Préférences de séances':'prefs','Gestes':'prefs','Sauvegarde':'data','Mes données':'data'};
 function profPaged(html){ const parts=html.split('<div class="card sec">'); const head=parts.shift(); const G2={};
   for(const p of parts){ const m=p.match(/^<h3>([^<]*)<\/h3>/); const g=(m&&PMAP[m[1]])||'data'; (G2[g]=G2[g]||[]).push('<div class="card sec">'+p); }
   if(!G2[PROFTAB]) PROFTAB='allures';
@@ -2484,7 +2513,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261113144944';
+const BUILD='20261117183638';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

@@ -851,11 +851,12 @@ function encAppleWorkout(name,wk){
     if(st.hr){ return [...PB.v(1,5),...PB.v(2,2),...PB.b(7,PB.b(2,[...PB.b(1,PB.d(1,st.hr[0])),...PB.b(2,PB.d(1,st.hr[1]))]))]; }
     return null; };
   const sp=wk.sport||'run'; if(sp==='ow') throw new Error('apple-ow');
-  const step=st=>{ const a=sp==='run'?alert(st):null; return [...PB.b(1,goal(st.g)),...(a?PB.b(2,a):[])]; };
-  // natation piscine : HKWorkoutActivityType.swimming (46), lieu intérieur (2) ; renfo : functionalStrengthTraining (20), intérieur
-  let w=[...PB.v(1,sp==='swim'?46:sp==='renfo'?20:37),...PB.v(2,sp==='run'?3:2),...PB.b(3,name)];
+  // nom d'étape (champ 3), relevé sur des exports réels de séances piscine (« Battements », « Nage libre »)
+  const step=(st,nm)=>{ const a=sp==='run'?alert(st):null; return [...PB.b(1,goal(st.g)),...(a?PB.b(2,a):[]),...(nm?PB.b(3,nm):[])]; };
+  // piscine : HKWorkoutActivityType.swimming (46), lieu 3 — comme les exports réels ; renfo : functionalStrengthTraining (20)
+  let w=[...PB.v(1,sp==='swim'?46:sp==='renfo'?20:37),...PB.v(2,sp==='renfo'?2:3),...PB.b(3,name)];
   if(wk.warm) w.push(...PB.b(4,step(wk.warmStep||{g:['open',0]})));
-  for(const B of wk.blocks){ let b=[]; for(const st of B.steps) b.push(...PB.b(1,[...PB.v(1,st.p==='work'?1:2),...PB.b(2,step(st))])); b.push(...PB.v(2,B.iter)); w.push(...PB.b(5,b)); }
+  for(const B of wk.blocks){ let b=[]; for(const st of B.steps) b.push(...PB.b(1,[...PB.v(1,st.p==='work'?1:2),...PB.b(2,step(st,sp!=='run'&&st.p==='work'?st.nm:null))])); b.push(...PB.v(2,B.iter)); w.push(...PB.b(5,b)); }
   if(wk.cool!==false&&wk.warm) w.push(...PB.b(6,step(wk.coolStep||{g:['open',0]})));
   else if(wk.coolStep) w.push(...PB.b(6,step(wk.coolStep)));
   return new Uint8Array([...PB.b(9,uuid4()),...PB.b(11,w),...PB.v(1000,1),...PB.v(1002,5)]);
@@ -2592,7 +2593,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261118100641';
+const BUILD='20261118101310';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

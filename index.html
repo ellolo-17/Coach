@@ -552,7 +552,7 @@ function makeEngine(S,H){ H=H||{};
       lib[3].l[1]=Math.max(3,Math.round(Math.min(b.bs,1500)/500))+' × 500 m à '+swP(8)+' (le dernier en pull + plaquettes) — r 30"'; }
     const li=force!=null?force:order[idx%order.length]; const s=lib[li]; let f=ph==='taper'?0.65:ph==='race'?0.5:1;
     const vol=Math.round(s.v*f/100)*100, dur=Math.round(vol/100*(C+10)/60+5);
-    return {_li:li,_ph:ph,cat:'swim',type:'Piscine',title:'Piscine · '+s.t,sum:'~'+vol+' m · CSS '+fmtPaceSec(C)+'/100 m',dur,
+    return {_li:li,_ph:ph,cat:'swim',type:'Piscine',title:'Piscine · '+s.t,sum:'~'+vol+' m · CSS '+fmtPaceSec(C)+'/100 m',dur,wk:swimWk(s.l,'swim',f),
       blocks:[{h:'Séance'+(f<1?' (volume réduit ×'+f.toString().replace('.',',')+')':''),l:s.l}].concat(f<1?[{h:'Note',l:['Réduis chaque bloc principal dans la même proportion']}]:[])};
   }
   function swimOW(c,idx){
@@ -567,14 +567,52 @@ function makeEngine(S,H){ H=H||{};
       lib[1].d=Math.round(3*(Y/100*(C+10)/60+Z/kmh(75)*60+2)); lib[1].l[0]='3 × ('+Y+' m nage + '+kmS(Z)+' course), en équipement de course complet'+(c.sw<=4?'. Une fois dans le bloc, allonge un segment jusqu\'à ton Big Swim ('+b.bs+' m) ou ton Big Run ('+kmS(b.br)+')':'');
       lib[2].l[0]='Big Swim : '+X+' m continu (~'+fmtMin(X/100*(C+10)/60)+') à allure course, pull-buoy + plaquettes. Ton plus long segment : '+b.bs+' m'; }
     const s=lib[idx%lib.length];
-    return {_oi:idx%lib.length,cat:'swim',type:'Eau libre',title:s.t,sum:'Avec combinaison, jamais seul',dur:s.d,
+    return {_oi:idx%lib.length,cat:'swim',type:'Eau libre',title:s.t,sum:'Avec combinaison, jamais seul',dur:s.d,wk:idx%lib.length===1?null:swimWk(s.l,'ow'),
       blocks:[{h:'Séance',l:s.l},{h:'Sécurité',l:['Jamais seul, bouée de nage visible','Combinaison selon la température de l\'eau'].concat(cold?['Si l\'eau est sous 14 °C : remplace par la séance piscine « Spécifique swimrun »']:[])}]};
   }
 
   function swimBrick(c){ const C=css(), b=bigs(c.swimT), v=Math.min(kmh(82),raceSpeed(c.swimT)*1.03), run=Math.min(25,Math.max(15,Math.round((b?b.br*0.6/v*60:20)/5)*5));
-    return {cat:'swim',type:'Enchaînement',title:'Enchaînement piscine + course',sum:'~1 500 m nage puis '+run+"' de course",dur:Math.round(1500/100*(C+10)/60+5+run+5),
+    const sw=swimWk(['300 m échauffement','4 × 200 m pull-buoy + plaquettes à '+swP(5)+' — r 20"','4 × 50 m tête haute (visée) — r 15"','200 m souple'],'swim');
+    const rw={sport:'run',warm:false,blocks:[{iter:1,steps:[{p:'work',g:['time',run*60],pace:3600/v}]},{iter:1,steps:[{p:'work',g:['time',300],nm:'Souple'}]}]};
+    return {cat:'swim',type:'Enchaînement',title:'Enchaînement piscine + course',sum:'~1 500 m nage puis '+run+"' de course",dur:Math.round(1500/100*(C+10)/60+5+run+5),wk:sw,wk2:rw,wkNames:['nage','course'],
       blocks:[{h:'Piscine',l:['300 m échauffement','4 × 200 m pull-buoy + plaquettes à '+swP(5)+' — r 20"','4 × 50 m tête haute (visée) — r 15"','200 m souple']},
         {h:'Dès la sortie du bassin',l:["Enchaîne en moins de 10' : "+run+"' de course à allure swimrun ("+pace(v)+')','Les jambes sont lourdes au début : c\'est exactement ce qu\'on travaille','Finis par 5\' très souple']}]}; }
+
+
+  /* ----- fichiers montre : natation, eau libre, renfo ----- */
+  const POOL=()=>+P.poolLen===50?50:25;
+  function swEq(t){ if(/le (3e|dernier)/i.test(t)) return null; const p=/pull/i.test(t), q=/plaquette/i.test(t); return p&&q?'both':p?'pull':q?'paddles':null; }
+  function swName(t){ const T=t.toLowerCase(); let n=/éducatif/.test(T)?'Educatifs':/t[êe]te haute/.test(T)?'Tete haute':/sprint|vite/.test(T)?'Vite':/progressif/.test(T)?'Progressif':/css/.test(T)?'Allure CSS':/big swim/.test(T)?'Big Swim':/souple/.test(T)?'Souple':/pull|plaquette/.test(T)&&!/le (3e|dernier)/.test(T)?'Pull+plaquettes':'Nage';
+    const pc=t.match(/(\d)'(\d\d)\/100/); if(pc&&n!=='Educatifs') n+=' '+pc[1]+"'"+pc[2]; return n; }
+  function swimWk(lines,sport,f){ const wk={sport,pool:sport==='swim'?POOL():null,warm:false,cool:false,blocks:[]}; let m;
+    lines.forEach((t,i)=>{ const L=String(t).replace(/ /g,' '), eq=swEq(L), nm=swName(L), last=i===lines.length-1;
+      const rs=(L.match(/r (\d+)"/)||[])[1], rm=(L.match(/r (\d+)'/)||[])[1], rec=rs?+rs:rm?+rm*60:null;
+      const sc=n=>f&&f<1&&!/échauffement|souple/i.test(L)?Math.max(1,Math.round(n*f)):n;
+      if(m=L.match(/^(\d+) séries de (\d+) × (\d+) m/)){ const R=(L.match(/R (\d+)'/)||[])[1]; const st=[{p:'work',g:['dist',+m[3]],nm,eq}].concat(rec?[{p:'rec',g:['time',rec]}]:[]);
+        for(let k=0;k<+m[1];k++){ wk.blocks.push({iter:sc(+m[2]),steps:st}); if(R&&k<+m[1]-1) wk.blocks.push({iter:1,steps:[{p:'rec',g:['time',+R*60]}]}); } return; }
+      if(m=L.match(/^(\d+) × (\d+) m\b/)){ wk.blocks.push({iter:sc(+m[1]),steps:[{p:'work',g:['dist',+m[2]],nm,eq}].concat(rec?[{p:'rec',g:['time',rec]}]:[])}); return; }
+      if(m=L.match(/^(\d+) × (\d+)'/)){ wk.blocks.push({iter:sc(+m[1]),steps:[{p:'work',g:['time',+m[2]*60],nm:'Allure course',eq}].concat(rec?[{p:'rec',g:['time',rec]}]:[])}); return; }
+      if(m=L.match(/(\d{3,4}) m\b/)){ const st={p:'work',g:['dist',+m[1]],nm,eq};
+        if(i===0&&/échauffement|souple/i.test(L)){ wk.warm=true; wk.warmStep={g:st.g,nm:'Echauffement'}; return; }
+        if(last&&/souple/i.test(L)){ wk.cool=true; wk.coolStep={g:st.g,nm:'Souple'}; return; }
+        wk.blocks.push({iter:1,steps:[st]}); return; }
+      if(m=L.match(/^(\d+)(?:–\d+)?'/)){ const g=['time',+m[1]*60];
+        if(i===0&&/souple/i.test(L)){ wk.warm=true; wk.warmStep={g,nm:'Souple'}; return; }
+        if(last&&/souple/i.test(L)){ wk.cool=true; wk.coolStep={g,nm:'Souple'}; return; }
+        wk.blocks.push({iter:1,steps:[{p:'work',g,nm:/continu/.test(L)?'Continu':'Nage',eq}]}); return; }
+    });
+    if(sport==='swim'){ const pl=wk.pool, fix=g=>g&&g[0]==='dist'&&g[1]%pl?['dist',Math.max(pl,Math.round(g[1]/pl)*pl)]:g; // distances multiples de la longueur du bassin
+      if(wk.warmStep) wk.warmStep.g=fix(wk.warmStep.g); if(wk.coolStep) wk.coolStep.g=fix(wk.coolStep.g);
+      wk.blocks=wk.blocks.map(b=>({iter:b.iter,steps:b.steps.map(st=>Object.assign({},st,{g:fix(st.g)}))})); }
+    return wk.blocks.length?wk:null; }
+  function renfoWk(lines){ const wk={sport:'renfo',warm:false,cool:false,blocks:[]}; let m;
+    for(const t of lines){ const L=String(t); const name=L.split(/\s\d|:/)[0].replace(/\(.*/,'').trim().slice(0,16)||'Exercice';
+      const two=/par (côté|jambe)/.test(L)?2:1;
+      if(m=L.match(/(\d+) × (\d+)"/)){ wk.blocks.push({iter:+m[1]*two,steps:[{p:'work',g:['time',+m[2]],nm:name},{p:'rec',g:['time',30]}]}); continue; }
+      if(m=L.match(/(\d+) × (\d+)\b/)){ wk.blocks.push({iter:+m[1],steps:[{p:'work',g:['open',0],nm:(name+' x'+m[2]).slice(0,16)},{p:'rec',g:['time',45]}]}); continue; }
+      if(m=L.match(/(\d+)'/)){ wk.blocks.push({iter:1,steps:[{p:'work',g:['time',+m[1]*60],nm:name}]}); continue; }
+      wk.blocks.push({iter:1,steps:[{p:'work',g:['open',0],nm:name}]}); }
+    return wk.blocks.length?wk:null; }
 
   /* ----- renfo ----- */
   const RENFO={
@@ -588,7 +626,7 @@ function makeEngine(S,H){ H=H||{};
     else if(c.swimT && idx%2===0) k='R3';
     else if(c.kind==='nature'||(c.target&&+c.target.dplus>200)) k=idx%2?'R1':'R2';
     else k=idx%2?'R2':'R1';
-    const r=RENFO[k]; return {_rk:k,cat:'renfo',type:'Renfo',title:r.t,sum:r.l.length+' exercices',dur:r.d,blocks:[{h:'Circuit',l:r.l}]}; }
+    const r=RENFO[k]; return {_rk:k,cat:'renfo',type:'Renfo',title:r.t,sum:r.l.length+' exercices',dur:r.d,wk:renfoWk(r.l),blocks:[{h:'Circuit',l:r.l}]}; }
 
   /* ----- alternatives (changer de séance) ----- */
   const withCap=(cap,f)=>{ const o=CAP; CAP=cap; try{ return f(); } finally{ CAP=o; } };
@@ -811,8 +849,10 @@ function encAppleWorkout(name,wk){
     if(st.pace){ const [lo,hi]=paceRange(st.pace); return [...PB.v(1,1),...PB.v(2,2),...PB.b(4,PB.b(2,[...PB.b(1,pv(lo)),...PB.b(2,pv(hi))]))]; }
     if(st.hr){ return [...PB.v(1,5),...PB.v(2,2),...PB.b(7,PB.b(2,[...PB.b(1,PB.d(1,st.hr[0])),...PB.b(2,PB.d(1,st.hr[1]))]))]; }
     return null; };
-  const step=st=>{ const a=alert(st); return [...PB.b(1,goal(st.g)),...(a?PB.b(2,a):[])]; };
-  let w=[...PB.v(1,37),...PB.v(2,3),...PB.b(3,name)];
+  const sp=wk.sport||'run'; if(sp==='ow') throw new Error('apple-ow');
+  const step=st=>{ const a=sp==='run'?alert(st):null; return [...PB.b(1,goal(st.g)),...(a?PB.b(2,a):[])]; };
+  // natation piscine : HKWorkoutActivityType.swimming (46), lieu intérieur (2) ; renfo : functionalStrengthTraining (20), intérieur
+  let w=[...PB.v(1,sp==='swim'?46:sp==='renfo'?20:37),...PB.v(2,sp==='run'?3:2),...PB.b(3,name)];
   if(wk.warm) w.push(...PB.b(4,step(wk.warmStep||{g:['open',0]})));
   for(const B of wk.blocks){ let b=[]; for(const st of B.steps) b.push(...PB.b(1,[...PB.v(1,st.p==='work'?1:2),...PB.b(2,step(st))])); b.push(...PB.v(2,B.iter)); w.push(...PB.b(5,b)); }
   if(wk.cool!==false&&wk.warm) w.push(...PB.b(6,step(wk.coolStep||{g:['open',0]})));
@@ -835,23 +875,25 @@ function encGarminFit(name,wk){
   const mk=(st,nm,it)=>{ const o={nm,it,tv:0,lo:INV32,hi:INV32};
     if(st.g[0]==='time'){ o.dt=0; o.dv=Math.round(st.g[1]*1000); } else if(st.g[0]==='dist'){ o.dt=1; o.dv=Math.round(st.g[1]*100); } else { o.dt=5; o.dv=INV32; }
     if(st.pace){ const [lo,hi]=paceRange(st.pace); o.tt=0; o.lo=Math.round(lo*1000); o.hi=Math.round(hi*1000); } else if(st.hr){ o.tt=1; o.lo=st.hr[0]+100; o.hi=st.hr[1]+100; } else o.tt=2; return o; };
-  if(wk.warm) S.push(mk(wk.warmStep||{g:['open',0]},'Echauffement',2));
+  const sp=wk.sport||'run', swim=sp==='swim'||sp==='ow', EQ={pull:4,paddles:3,both:4};
+  if(wk.warm) S.push(mk(wk.warmStep||{g:['open',0]},(wk.warmStep&&wk.warmStep.nm)||'Echauffement',2));
   for(const B of wk.blocks){ const start=S.length;
-    for(const st of B.steps){ const o={nm:st.p==='work'?'Effort':'Recup',it:st.p==='work'?0:4,tv:0,lo:INV32,hi:INV32};
+    for(const st of B.steps){ const o={nm:st.nm||(st.p==='work'?'Effort':(swim?'Repos':'Recup')),it:st.p==='work'?0:(swim||sp==='renfo'?1:4),tv:0,lo:INV32,hi:INV32,eq:st.eq?EQ[st.eq]:0};
       if(st.g[0]==='time'){ o.dt=0; o.dv=Math.round(st.g[1]*1000); } else if(st.g[0]==='dist'){ o.dt=1; o.dv=Math.round(st.g[1]*100); } else { o.dt=5; o.dv=INV32; }
       if(st.pace){ const [lo,hi]=paceRange(st.pace); o.tt=0; o.lo=Math.round(lo*1000); o.hi=Math.round(hi*1000); }
       else if(st.hr){ o.tt=1; o.lo=st.hr[0]+100; o.hi=st.hr[1]+100; } else o.tt=2;
       S.push(o); }
     if(B.iter>1) S.push({nm:'',dt:6,dv:start,tt:0xFF,tv:B.iter,lo:INV32,hi:INV32,it:0xFF});
   }
-  if(wk.cool!==false&&wk.warm) S.push(mk(wk.coolStep||{g:['open',0]},'Retour au calme',3));
-  else if(wk.coolStep) S.push(mk(wk.coolStep,'Retour au calme',3));
+  if(wk.cool!==false&&wk.warm) S.push(mk(wk.coolStep||{g:['open',0]},(wk.coolStep&&wk.coolStep.nm)||'Retour au calme',3));
+  else if(wk.coolStep) S.push(mk(wk.coolStep,(wk.coolStep&&wk.coolStep.nm)||'Retour au calme',3));
   // workout
-  def(1,26,[[4,1,ENUM],[5,4,U32Z],[6,2,U16],[8,40,STR],[11,1,ENUM]]);
-  u8(1); u8(1); u32(32); u16(S.length); str(name,40); u8(0);
+  def(1,26,[[4,1,ENUM],[5,4,U32Z],[6,2,U16],[8,40,STR],[11,1,ENUM],[14,2,U16],[15,1,ENUM]]);
+  // sport : course 1 · natation 5 (piscine 17, eau libre 18) · entraînement 10 (renfo 20)
+  u8(1); u8(swim?5:sp==='renfo'?10:1); u32(32); u16(S.length); str(name,40); u8(sp==='swim'?17:sp==='ow'?18:sp==='renfo'?20:0); u16(sp==='swim'?(wk.pool||25)*100:0xFFFF); u8(sp==='swim'?0:0xFF);
   // workout_step
-  def(2,27,[[254,2,U16],[0,16,STR],[1,1,ENUM],[2,4,U32],[3,1,ENUM],[4,4,U32],[5,4,U32],[6,4,U32],[7,1,ENUM]]);
-  S.forEach((o,i)=>{ u8(2); u16(i); str(o.nm,16); u8(o.dt); u32(o.dv); u8(o.tt); u32(o.tv); u32(o.lo); u32(o.hi); u8(o.it); });
+  def(2,27,[[254,2,U16],[0,16,STR],[1,1,ENUM],[2,4,U32],[3,1,ENUM],[4,4,U32],[5,4,U32],[6,4,U32],[7,1,ENUM],[9,1,ENUM]]);
+  S.forEach((o,i)=>{ u8(2); u16(i); str(o.nm,16); u8(o.dt); u32(o.dv); u8(o.tt); u32(o.tv); u32(o.lo); u32(o.hi); u8(o.it); u8(o.eq!=null?o.eq:0); });
   const h=[14,0x20,2132&255,2132>>8, out.length&255,(out.length>>>8)&255,(out.length>>>16)&255,(out.length>>>24)&255, 46,70,73,84];
   const hc=fitCRC(h); h.push(hc&255,hc>>8);
   const all=[...h,...out]; const c=fitCRC(all); all.push(c&255,c>>8);
@@ -1173,6 +1215,7 @@ function profView(){
   <label class="f">Test CSS : temps 400 m et 200 m</label><div class="grid2"><input class="inp" id="s400" placeholder="400 m ex. 7:40"><input class="inp" id="s200" placeholder="200 m ex. 3:35"></div>
   <div class="row" style="margin-top:8px"><button class="btn ghost sm" id="sapply">Calculer ma CSS</button></div>
   <p class="hint">CSS utilisée : <b>${fmtPaceSec(EN.css())}/100 m</b>${P.css?'':' (estimée depuis ton 100 m)'}.</p>
+  <label class="f">Longueur du bassin (fichiers montre)</label><div class="seg">${[25,50].map(n=>`<button class="${(+P.poolLen===50?50:25)===n?'on':''}" data-pool="${n}">${n} m</button>`).join('')}</div>
   <label class="f">Séances de natation minimum par semaine</label><div class="seg">${[0,1,2,3,4].map(n=>`<button class="${swimMinOf(P)===n?'on':''}" data-smin="${n}">${n}</button>`).join('')}</div>
   <p class="hint">Toute l'année, avec ou sans swimrun prévu. En préparation swimrun, l'appli peut en ajouter (jamais moins). Il faut au moins autant de jours cochés « Natation » dans les disponibilités${P.avail.swim.length<swimMinOf(P)?' : <b>tu n\'en as coché que '+P.avail.swim.length+'</b>':''}.</p></div>
 
@@ -1271,6 +1314,7 @@ document.addEventListener('click',async e=>{
   else if(t=e.target.closest('[data-vm]')){ P.vmaMode=t.dataset.vm; save(); render(); }
   else if(t=e.target.closest('[data-lr]')){ P.lrDay=t.dataset.lr===''?null:+t.dataset.lr; if(P.lrDay!=null&&!P.avail.run.includes(P.lrDay)) P.avail.run=[...P.avail.run,P.lrDay].sort(); save(); render(); }
   else if(t=e.target.closest('[data-sex]')){ P.sex=t.dataset.sex; save(); render(); }
+  else if(t=e.target.closest('[data-pool]')){ P.poolLen=+t.dataset.pool; save(); render(); }
   else if(t=e.target.closest('[data-hmax]')){ P.hillMax=+t.dataset.hmax; save(); render(); }
   else if(t=e.target.closest('[data-smin]')){ P.swimMin=+t.dataset.smin; P.swimAllYear=P.swimMin>0; save(); render(); }
   else if(t=e.target.closest('[data-tog]')){ P[t.dataset.tog]=!P[t.dataset.tog]; save(); render(); }
@@ -1458,16 +1502,23 @@ function guideView(){
 /* ---------- montre ---------- */
 async function sendToWatch(kind,key){
   const s=SESS[key]; if(!s||!s.wk) return; if(kind!=='garminfit') logUse(kind==='apple'?'apple':'garmin');
-  if(kind==='garmin'){ const t=icuText(s); if(t){ icuSheet(s.title,t,key); return; } }
+  if(kind==='garmin'){ const parts=[{label:s.wk2?'1. Nage':'',wk:s.wk},s.wk2?{label:'2. Course',wk:s.wk2}:null].filter(Boolean).map(p=>({label:p.label,sport:p.wk.sport||'run',txt:icuText(p.wk===s.wk?s:{wk:p.wk,blocks:[]},p.wk)})).filter(p=>p.txt);
+    if(parts.length){ icuSheet(s.title,parts,key); return; } }
   if(kind==='garminfit') kind='garmin';
+  if(kind==='apple'&&s.wk.sport==='ow'){ toast('L\'Apple Watch ne gère pas les séances d\'eau libre personnalisées : utilise Garmin'); return; }
   const dk=key.split('|')[0], d=parseD(dk);
   const clean=s.title.replace(/[·×'"\/:*?<>|]/g,' ').replace(/\s+/g,' ').trim();
   const who=MULTI()?activeAth().name:''; const base=(who?who+' ':'')+dk+' '+clean, name=pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+' '+s.title+(who?' ('+who+')':'');
-  let data, ext;
-  try{ if(kind==='apple'){ data=encAppleWorkout(name,s.wk); ext='.workout'; } else { data=encGarminFit(name,s.wk); ext='.fit'; } }
-  catch(err){ toast('Impossible de créer le fichier pour cette séance'); return; }
-  const ok=STANDALONE? await offerFile(base+ext,data) : await offerFile(base+(kind==='apple'?' Apple':' Garmin')+'.zip',makeZip([{name:base+ext,data}]));
-  if(ok&&STANDALONE) toast(kind==='apple'?'Fichier .workout téléchargé : envoie-le-toi par Messages':'Fichier .fit téléchargé'); else if(ok) toast(kind==='apple'?'Ouvre le zip dans Fichiers, puis touche le fichier .workout':'Dézippe dans Fichiers, puis importe le .fit dans intervals.icu');
+  const L=[[s.wk,s.wk2?' 1 nage':''],[s.wk2,' 2 course']].filter(x=>x[0]); const ext=kind==='apple'?'.workout':'.fit'; const files=[];
+  try{ for(const [wk,suf] of L) files.push({name:base+suf+ext,data:kind==='apple'?encAppleWorkout(name+(suf?' ·'+suf.replace(/^ \d/,''):''),wk):encGarminFit(name+suf,wk)}); }
+  catch(err){ console.error(err); toast('Impossible de créer le fichier pour cette séance'); return; }
+  let ok;
+  if(STANDALONE&&files.length>1&&navigator.canShare){ const F=files.map(f=>new File([f.data],f.name,{type:'application/octet-stream'}));
+    if(navigator.canShare({files:F})){ try{ await navigator.share({files:F}); ok=true; }catch(err){ ok=false; } } else { files.forEach(f=>directDownload(f.name,f.data)); ok=true; } }
+  else if(STANDALONE&&files.length>1){ files.forEach(f=>directDownload(f.name,f.data)); ok=true; }
+  else ok=STANDALONE? await offerFile(files[0].name,files[0].data) : await offerFile(base+(kind==='apple'?' Apple':' Garmin')+'.zip',makeZip(files));
+  const many=files.length>1;
+  if(ok&&STANDALONE) toast(kind==='apple'?(many?'2 fichiers .workout (nage, course) : envoie-les-toi par Messages':'Fichier .workout téléchargé : envoie-le-toi par Messages'):(many?'2 fichiers .fit téléchargés':'Fichier .fit téléchargé')); else if(ok) toast(kind==='apple'?'Ouvre le zip dans Fichiers, puis touche le fichier .workout':'Dézippe dans Fichiers, puis importe le .fit');
 }
 function howTo(){
   modalKind='howto';
@@ -1664,10 +1715,10 @@ function intensOf(st){ const V=S.profile.vma;
   if(st.hr){ const p=(st.hr[0]+st.hr[1])/2/EN.hrMax(); return p>=0.88?2:p>=0.83?1:0; }
   return st.p==='work'?2:0; }
 function segsOf(s){ const wk=s.wk; if(!wk) return null; const out=[];
-  const dur=st=>st.g[0]==='time'?st.g[1]:st.g[0]==='dist'?st.g[1]/(st.pace?1000/st.pace:EN.kmh(75)/3.6):(st.p==='rec'?60:90);
-  if(wk.warm) out.push({c:'w',d:wk.warmStep&&wk.warmStep.g[0]==='time'?wk.warmStep.g[1]:1200});
+  const sw=wk.sport==='swim'||wk.sport==='ow', dur=st=>st.g[0]==='time'?st.g[1]:st.g[0]==='dist'?(sw?st.g[1]/100*(EN.css()+10):st.g[1]/(st.pace?1000/st.pace:EN.kmh(75)/3.6)):(st.p==='rec'?60:90);
+  if(wk.warm) out.push({c:'w',d:wk.warmStep&&wk.warmStep.g[0]==='time'?wk.warmStep.g[1]:wk.warmStep&&wk.warmStep.g[0]==='dist'&&sw?dur(wk.warmStep):1200});
   for(const B of wk.blocks) for(let i=0;i<B.iter;i++) for(const st of B.steps) out.push({c:st.p==='rec'?'r':'i'+intensOf(st),d:dur(st)});
-  if((wk.warm&&wk.cool!==false)||wk.coolStep) out.push({c:'w',d:wk.coolStep&&wk.coolStep.g[0]==='time'?wk.coolStep.g[1]:600});
+  if((wk.warm&&wk.cool!==false)||wk.coolStep) out.push({c:'w',d:wk.coolStep&&wk.coolStep.g[0]==='time'?wk.coolStep.g[1]:wk.coolStep&&wk.coolStep.g[0]==='dist'&&sw?dur(wk.coolStep):600});
   if(out.length>100){ const m=[]; for(const x of out){ const l=m[m.length-1]; if(l&&l.c===x.c) l.d+=x.d; else m.push(Object.assign({},x)); } return m; }
   return out; }
 function schemaHTML(s,big){ const sg=segsOf(s); if(!sg||!sg.length) return '';
@@ -1693,7 +1744,7 @@ function actsHTML(s){ const key=esc(s.key), done=!!S.done[s.key];
   const canReal=s.cat!=='race'&&s.cat!=='off';
   return `<div class="acts a4"><button class="${done?'on':''}" data-done="${key}"><span class="ic">✓</span>${done?'Faite':'Fait'}</button>
     ${s.wk?`<button data-fw="${key}"><span class="ic">⌚</span>Montre</button>`:`<button data-calopen="${key}"><span class="ic">📅</span>Agenda</button>`}${canReal?`<button class="${s.real?'on2':''}" data-realopen="${key}"><span class="ic">✎</span>${s.real?'Réalisé ✓':'Réalisé'}</button>`:`<button data-fiche="${key}"><span class="ic">☰</span>Détail</button>`}<button data-more="${key}" aria-label="Autres actions"><span class="ic" style="font-size:20px;line-height:18px">⋯</span>Plus</button></div><div class="actmenu" hidden></div>
-    ${s.wk?`<div class="fwbox" data-fwbox="${key}" style="display:none;margin-top:8px"><div class="row"><button class="btn sm" data-wx="apple" data-key="${key}">Apple Watch</button><button class="btn sm" data-wx="garmin" data-key="${key}">Garmin</button>${s.alts?`<button class="btn ghost sm" data-tow="${key}">✎ Modifier</button>`:''}</div><p class="hint">Allure ± 10 s/km. ${STANDALONE?'':'Depuis Claude, le fichier arrive dans un .zip à ouvrir dans Fichiers. '}<button class="linkbtn" data-howto="1">Comment faire ?</button></p></div>`:''}`; }
+    ${s.wk?`<div class="fwbox" data-fwbox="${key}" style="display:none;margin-top:8px"><div class="row">${s.wk.sport==='ow'?'':`<button class="btn sm" data-wx="apple" data-key="${key}">Apple Watch</button>`}<button class="btn sm" data-wx="garmin" data-key="${key}">Garmin</button>${s.alts&&s.cat==='run'?`<button class="btn ghost sm" data-tow="${key}">✎ Modifier</button>`:''}</div><p class="hint">${s.wk.sport==='swim'?'Bassin de '+s.wk.pool+' m (Profil › Natation)'+(s.wk2?' · 2 fichiers : nage puis course':'')+'.':s.wk.sport==='ow'?'Eau libre : Garmin seulement (l\'Apple Watch ne gère pas les séances d\'eau libre personnalisées).':s.wk.sport==='renfo'?'Circuit chronométré : exercices en temps ou « jusqu\'à appui » pour les répétitions.':'Allure ± 10 s/km.'} ${STANDALONE?'':'Depuis Claude, le fichier arrive dans un .zip à ouvrir dans Fichiers. '}<button class="linkbtn" data-howto="1">Comment faire ?</button></p></div>`:''}`; }
 
 /* ---- carte héros (Aujourd'hui) ---- */
 function heroHTML(ws,dk,s,kick){ reg(ws,dk,s); const fe=(S.feel||{})[s.key]||{};
@@ -2414,7 +2465,14 @@ document.addEventListener('click',e=>{ let t; const v=id=>(document.getElementBy
 });
 
 /* ===================== Garmin via intervals.icu ===================== */
-function icuText(s){ const wk=s.wk; if(!wk) return null; const fp=x=>{ x=Math.round(x/5)*5; return Math.floor(x/60)+':'+pad2(x%60); };
+function icuText(s,wk0){ const wk=wk0||s.wk; if(!wk) return null;
+  if(wk.sport&&wk.sport!=='run'){ const tf=t=>{ t=Math.round(t); const m=Math.floor(t/60), sc=t%60; return m&&sc?m+'m'+sc+'s':m?m+'m':sc+'s'; };
+    const du=(g,def)=>!g||g[0]==='open'?def:g[0]==='dist'?g[1]+'mtr':tf(g[1]); const L=[];
+    if(wk.warm&&wk.warmStep) L.push('Warmup','- '+(wk.warmStep.nm?wk.warmStep.nm+' ':'')+du(wk.warmStep.g,'5m'),'');
+    for(const b of wk.blocks){ const cue=n=>String(n||'').replace(/(\d)'(\d\d)/g,'$1:$2/100').replace(/['"]/g,' ').trim(); const st=b.steps.map(x=>'- '+(cue(x.nm)||(x.p==='rec'?'Repos':''))+' '+du(x.g,x.p==='rec'?'30s':'1m')+(x.eq?' ('+({pull:'pull-buoy',paddles:'plaquettes',both:'pull + plaquettes'}[x.eq])+')':''));
+      if(b.iter>1) L.push(b.iter+'x',...st,''); else L.push(...st,''); }
+    if(wk.coolStep) L.push('Cooldown','- '+(wk.coolStep.nm?wk.coolStep.nm+' ':'')+du(wk.coolStep.g,'5m'));
+    return L.join('\n').trim(); } const fp=x=>{ x=Math.round(x/5)*5; return Math.floor(x/60)+':'+pad2(x%60); };
   const rng=sec=>fp(sec+10)+'-'+fp(Math.max(120,sec-10))+'/km Pace', ef=rng(3600/EN.kmh(70)), slow=fp(3600/EN.kmh(55))+'-'+fp(3600/EN.kmh(65))+'/km Pace';
   const dur=g=>{ if(!g||g[0]==='open') return null; if(g[0]==='dist') return (Math.round(g[1])/1000)+'km'; const t=Math.round(g[1]), m=Math.floor(t/60), sc=t%60; return m&&sc?m+'m'+sc+'s':m?m+'m':sc+'s'; };
   const step=(st,def,tgt)=>{ const d=dur(st&&st.g)||def; const t=st&&st.pace?rng(st.pace):tgt; return '- '+d+' '+t; };
@@ -2426,21 +2484,23 @@ function icuText(s){ const wk=s.wk; if(!wk) return null; const fp=x=>{ x=Math.ro
   if(wk.cool!==false&&wk.warm) L.push('Cooldown',step(wk.coolStep,(cMin?cMin[1]:10)+'m',slow));
   else if(wk.coolStep) L.push('Cooldown',step(wk.coolStep,'10m',slow));
   return L.join('\n').trim(); }
-function icuSheet(title,txt,fitKey){ modalKind='txt'; const fitBtn=fitKey?`data-wx="garminfit" data-key="${esc(fitKey)}"`:'data-wbfit="1"';
+function icuSheet(title,parts,fitKey){ modalKind='txt'; if(typeof parts==='string') parts=[{label:'',txt:parts,sport:'run'}];
+  const fitBtn=fitKey?`data-wx="garminfit" data-key="${esc(fitKey)}"`:'data-wbfit="1"', SPN={run:'Run',swim:'Swim',ow:'Swim',renfo:'WeightTraining'};
   $('#sheet').innerHTML=`<h3>Envoyer vers Garmin</h3><p class="small mut" style="margin:0 0 10px">${esc(title)}</p>
   <div class="ptabs"><button class="on" data-gtab="icu">📱 Téléphone</button><button data-gtab="pc">💻 Ordinateur</button></div>
-  <div data-gpane="icu"><textarea class="inp" id="icutxt" style="height:170px;font-family:ui-monospace,monospace;font-size:13px" readonly>${esc(txt)}</textarea>
-   <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn" data-icucopy="1">Copier et ouvrir intervals.icu</button></div>
-   <ol class="small" style="padding-left:18px;margin:12px 0 0"><li>Dans le calendrier d'intervals.icu, touche le <b>jour</b> de la séance › <b>Add workout</b> (ajouter une séance).</li><li>Choisis le sport <b>Run</b>, donne un nom, puis <b>colle le texte</b> dans la zone de description : le graphique de la séance apparaît.</li><li><b>Save</b> : intervals.icu l'envoie dans le calendrier Garmin Connect, puis sur la montre à la prochaine synchro.</li></ol>
+  <div data-gpane="icu">${parts.map((p,i)=>`${p.label?`<h4 style="margin:10px 0 4px">${esc(p.label)}</h4>`:''}<textarea class="inp" id="icutxt${i}" style="height:150px;font-family:ui-monospace,monospace;font-size:13px" readonly>${esc(p.txt)}</textarea>
+   <div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn" data-icucopy="${i}">Copier et ouvrir intervals.icu</button><span class="small mut">Sport : <b>${SPN[p.sport]||'Run'}</b></span></div>`).join('')}
+   <ol class="small" style="padding-left:18px;margin:12px 0 0"><li>Dans le calendrier d'intervals.icu, touche le <b>jour</b> de la séance › <b>Add workout</b> (ajouter une séance).</li><li>Choisis le sport indiqué (${[...new Set(parts.map(p=>SPN[p.sport]||'Run'))].join(', ')}), donne un nom, puis <b>colle le texte</b> dans la description : le graphique de la séance apparaît.</li><li><b>Save</b> : intervals.icu l'envoie dans le calendrier Garmin Connect, puis sur la montre à la prochaine synchro.</li></ol>
+   ${parts.length>1?'<p class="hint">Enchaînement : crée les deux séances le même jour, la nage puis la course.</p>':''}
    <p class="hint">Réglage à faire une seule fois : intervals.icu › Settings › Garmin Connect › connecter ton compte et cocher l'envoi des séances planifiées (« Upload planned workouts »).</p></div>
-  <div data-gpane="pc" hidden><button class="btn" ${fitBtn}>Télécharger le fichier .fit</button>
+  <div data-gpane="pc" hidden><button class="btn" ${fitBtn}>Télécharger ${parts.length>1?'les fichiers .fit':'le fichier .fit'}</button>
    <ol class="small" style="padding-left:18px;margin:12px 0 0"><li>Sur un ordinateur, va sur <b>connect.garmin.com</b> › Entraînement et planification › <b>Entraînements</b>.</li><li>Clique sur <b>Importer</b> (en haut à droite) et choisis le fichier .fit.</li><li>Enregistre, programme-la si tu veux à une date, puis synchronise ta montre.</li></ol>
    <p class="hint">Le bouton « Importer » n'existe pas sur tous les comptes, et l'appli Garmin Connect du téléphone ne sait pas importer une séance : elle prend le fichier pour une activité déjà faite. Dans ce cas, utilise l'onglet Téléphone (intervals.icu).</p></div><div style="margin-top:12px"><button class="btn ghost" data-close="1">Fermer</button></div>`;
   $('#modal').classList.add('show'); }
 document.addEventListener('click',e=>{ const t=e.target.closest('[data-gtab]'); if(!t) return; const k=t.dataset.gtab, sh=$('#sheet');
   sh.querySelectorAll('[data-gtab]').forEach(b=>b.classList.toggle('on',b===t)); sh.querySelectorAll('[data-gpane]').forEach(p=>p.hidden=p.dataset.gpane!==k); });
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wbfit]')) wbExport('garminfit'); });
-document.addEventListener('click',e=>{ if(!e.target.closest('[data-icucopy]')) return; const t=($('#icutxt')||{}).value||'';
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-icucopy]'); if(!b) return; const t=($('#icutxt'+(b.dataset.icucopy||'0'))||{}).value||'';
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('Texte copié : colle-le dans intervals.icu'),()=>toast('Sélectionne le texte et copie-le'));
   window.open('https://intervals.icu/calendar','_blank'); });
 
@@ -2519,7 +2579,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261117184249';
+const BUILD='20261118095538';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2618,7 +2678,7 @@ document.addEventListener('click',e=>{ let t;
 function actMenuHTML(s){ const k=esc(s.key), it=[];
   if(s.cat!=='race'&&s.cat!=='off') it.push(['✎','Modifier la séance',`data-mact="edit" data-key="${k}"`]);
   if(s.alts) it.push(['↻','Changer de séance',`data-chg="${k}"`]);
-  if(s.wk) it.push(['⌚','Éditer pour la montre',`data-tow="${k}"`]);
+  if(s.wk&&s.cat==='run') it.push(['⌚','Éditer pour la montre',`data-tow="${k}"`]);
   if(s.cat!=='race'&&s.cat!=='off') it.push(['⇄','Déplacer',`data-mact="move" data-key="${k}"`]);
   if(s.cat!=='off') it.push(['📅','Ajouter au calendrier',`data-mact="cal" data-key="${k}"`]);
   if(s.cat!=='race'&&s.cat!=='off') it.push(['🗑','Supprimer la séance',`data-hide="${k}" class="danger"`]);

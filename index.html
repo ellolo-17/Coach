@@ -567,7 +567,8 @@ function makeEngine(S,H){ H=H||{};
       lib[1].d=Math.round(3*(Y/100*(C+10)/60+Z/kmh(75)*60+2)); lib[1].l[0]='3 × ('+Y+' m nage + '+kmS(Z)+' course), en équipement de course complet'+(c.sw<=4?'. Une fois dans le bloc, allonge un segment jusqu\'à ton Big Swim ('+b.bs+' m) ou ton Big Run ('+kmS(b.br)+')':'');
       lib[2].l[0]='Big Swim : '+X+' m continu (~'+fmtMin(X/100*(C+10)/60)+') à allure course, pull-buoy + plaquettes. Ton plus long segment : '+b.bs+' m'; }
     const s=lib[idx%lib.length];
-    return {_oi:idx%lib.length,cat:'swim',type:'Eau libre',title:s.t,sum:'Avec combinaison, jamais seul',dur:s.d,wk:idx%lib.length===1?null:swimWk(s.l,'ow'),
+    const oi=idx%lib.length, nRep=oi===1?(+((s.l[0].match(/^(\d+) ×/)||[])[1])||3):0, multi=oi===1?[].concat(...Array.from({length:nRep},()=>['swim','run'])):null;
+    return {_oi:oi,cat:'swim',type:'Eau libre',title:s.t,sum:'Avec combinaison, jamais seul',dur:s.d,wk:oi===1?null:swimWk(s.l,'ow'),multi,
       blocks:[{h:'Séance',l:s.l},{h:'Sécurité',l:['Jamais seul, bouée de nage visible','Combinaison selon la température de l\'eau'].concat(cold?['Si l\'eau est sous 14 °C : remplace par la séance piscine « Spécifique swimrun »']:[])}]};
   }
 
@@ -860,6 +861,13 @@ function encAppleWorkout(name,wk){
   return new Uint8Array([...PB.b(9,uuid4()),...PB.b(11,w),...PB.v(1000,1),...PB.v(1002,5)]);
 }
 
+// multisport Apple (format relevé sur un export réel « Swimrun Hossegor ») : champ 14 = { 1: activité répétée, 2: nom }
+// activité = { 1: type HealthKit (46 nage, 37 course), 2: lieu (1 non précisé, 3 extérieur), 3: lieu de nage (2 eau libre, 0 sinon) }
+function encAppleMultisport(name,legs){
+  const act=l=>l==='swim'?[...PB.v(1,46),...PB.v(2,1),...PB.v(3,2)]:[...PB.v(1,37),...PB.v(2,3),...PB.v(3,0)];
+  const m=[]; for(const l of legs) m.push(...PB.b(1,act(l))); m.push(...PB.b(2,name));
+  return new Uint8Array([...PB.b(9,uuid4()),...PB.b(14,m),...PB.v(1000,1),...PB.v(1002,5)]);
+}
 function fitCRC(bytes,crc=0){ const T=[0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400];
   for(const b of bytes){ let t=T[crc&0xF]; crc=(crc>>4)&0x0FFF; crc=crc^t^T[b&0xF]; t=T[crc&0xF]; crc=(crc>>4)&0x0FFF; crc=crc^t^T[(b>>4)&0xF]; } return crc; }
 function encGarminFit(name,wk){
@@ -1501,7 +1509,12 @@ function guideView(){
 
 /* ---------- montre ---------- */
 async function sendToWatch(kind,key){
-  const s=SESS[key]; if(!s||!s.wk) return; if(kind!=='garminfit') logUse(kind==='apple'?'apple':'garmin');
+  const s=SESS[key]; if(!s||!(s.wk||s.multi)) return; if(kind!=='garminfit') logUse(kind==='apple'?'apple':'garmin');
+  if(!s.wk&&s.multi){ if(kind!=='apple'){ toast('Garmin ne permet pas de programmer un enchaînement de sports'); return; }
+    const dk=key.split('|')[0], d=parseD(dk), who=MULTI()?activeAth().name:''; const nm=pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+' '+s.title+(who?' ('+who+')':'');
+    const fn=(who?who+' ':'')+dk+' '+s.title.replace(/[·×'"\/:*?<>|]/g,' ').replace(/\s+/g,' ').trim()+'.workout'; const data=encAppleMultisport(nm,s.multi);
+    const ok=STANDALONE? await offerFile(fn,data) : await offerFile(fn.replace(/\.workout$/,' Apple.zip'),makeZip([{name:fn,data}]));
+    if(ok) toast(STANDALONE?'Fichier multisport .workout téléchargé : envoie-le-toi par Messages':'Ouvre le zip dans Fichiers, puis touche le fichier .workout'); return; }
   if(kind==='garmin'){ const parts=[{label:s.wk2?'1. Nage':'',wk:s.wk},s.wk2?{label:'2. Course',wk:s.wk2}:null].filter(Boolean).map(p=>({label:p.label,sport:p.wk.sport||'run',txt:icuText(p.wk===s.wk?s:{wk:p.wk,blocks:[]},p.wk)})).filter(p=>p.txt);
     if(parts.length){ icuSheet(s.title,parts,key); return; } }
   if(kind==='garminfit') kind='garmin';
@@ -1743,8 +1756,8 @@ function sessRow(ws,dk,s){ reg(ws,dk,s); const key=s.key, done=!!S.done[key], fe
 function actsHTML(s){ const key=esc(s.key), done=!!S.done[s.key];
   const canReal=s.cat!=='race'&&s.cat!=='off';
   return `<div class="acts a4"><button class="${done?'on':''}" data-done="${key}"><span class="ic">✓</span>${done?'Faite':'Fait'}</button>
-    ${s.wk?`<button data-fw="${key}"><span class="ic">⌚</span>Montre</button>`:`<button data-calopen="${key}"><span class="ic">📅</span>Agenda</button>`}${canReal?`<button class="${s.real?'on2':''}" data-realopen="${key}"><span class="ic">✎</span>${s.real?'Réalisé ✓':'Réalisé'}</button>`:`<button data-fiche="${key}"><span class="ic">☰</span>Détail</button>`}<button data-more="${key}" aria-label="Autres actions"><span class="ic" style="font-size:20px;line-height:18px">⋯</span>Plus</button></div><div class="actmenu" hidden></div>
-    ${s.wk?`<div class="fwbox" data-fwbox="${key}" style="display:none;margin-top:8px"><div class="row">${s.wk.sport==='ow'?'':`<button class="btn sm" data-wx="apple" data-key="${key}">Apple Watch</button>`}<button class="btn sm" data-wx="garmin" data-key="${key}">Garmin</button>${s.alts&&s.cat==='run'?`<button class="btn ghost sm" data-tow="${key}">✎ Modifier</button>`:''}</div><p class="hint">${s.wk.sport==='swim'?'Bassin de '+s.wk.pool+' m (Profil › Natation)'+(s.wk2?' · 2 fichiers : nage puis course':'')+'.':s.wk.sport==='ow'?'Eau libre : Garmin seulement (l\'Apple Watch ne gère pas les séances d\'eau libre personnalisées).':s.wk.sport==='renfo'?'Circuit chronométré : exercices en temps ou « jusqu\'à appui » pour les répétitions.':'Allure ± 10 s/km.'} ${STANDALONE?'':'Depuis Claude, le fichier arrive dans un .zip à ouvrir dans Fichiers. '}<button class="linkbtn" data-howto="1">Comment faire ?</button></p></div>`:''}`; }
+    ${s.wk||s.multi?`<button data-fw="${key}"><span class="ic">⌚</span>Montre</button>`:`<button data-calopen="${key}"><span class="ic">📅</span>Agenda</button>`}${canReal?`<button class="${s.real?'on2':''}" data-realopen="${key}"><span class="ic">✎</span>${s.real?'Réalisé ✓':'Réalisé'}</button>`:`<button data-fiche="${key}"><span class="ic">☰</span>Détail</button>`}<button data-more="${key}" aria-label="Autres actions"><span class="ic" style="font-size:20px;line-height:18px">⋯</span>Plus</button></div><div class="actmenu" hidden></div>
+    ${s.multi&&!s.wk?`<div class="fwbox" data-fwbox="${key}" style="display:none;margin-top:8px"><div class="row"><button class="btn sm" data-wx="apple" data-key="${key}">Apple Watch · multisport</button></div><p class="hint">Séance multisport ${s.multi.length/2} × (nage en eau libre + course) : la montre suit l'enchaînement, les distances et allures sont dans le détail. Garmin ne permet pas de programmer un enchaînement de sports. <button class="linkbtn" data-howto="1">Comment faire ?</button></p></div>`:''}${s.wk?`<div class="fwbox" data-fwbox="${key}" style="display:none;margin-top:8px"><div class="row">${s.wk.sport==='ow'?'':`<button class="btn sm" data-wx="apple" data-key="${key}">Apple Watch</button>`}<button class="btn sm" data-wx="garmin" data-key="${key}">Garmin</button>${s.alts&&s.cat==='run'?`<button class="btn ghost sm" data-tow="${key}">✎ Modifier</button>`:''}</div><p class="hint">${s.wk.sport==='swim'?'Bassin de '+s.wk.pool+' m (Profil › Natation)'+(s.wk2?' · 2 fichiers : nage puis course':'')+'.':s.wk.sport==='ow'?'Eau libre : Garmin seulement (l\'Apple Watch ne gère pas les séances d\'eau libre personnalisées).':s.wk.sport==='renfo'?'Circuit chronométré : exercices en temps ou « jusqu\'à appui » pour les répétitions.':'Allure ± 10 s/km.'} ${STANDALONE?'':'Depuis Claude, le fichier arrive dans un .zip à ouvrir dans Fichiers. '}<button class="linkbtn" data-howto="1">Comment faire ?</button></p></div>`:''}`; }
 
 /* ---- carte héros (Aujourd'hui) ---- */
 function heroHTML(ws,dk,s,kick){ reg(ws,dk,s); const fe=(S.feel||{})[s.key]||{};
@@ -2579,7 +2592,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261118095538';
+const BUILD='20261118100641';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

@@ -358,8 +358,24 @@ function makeEngine(S,H){ H=H||{};
 
   /* ----- prédiction ----- */
   function frac(tMin){ return tMin<=6?1:Math.max(0.55,1-0.06*Math.log(tMin/6)); }
-  function lvPen(t){ if(!(V3||!BUILD)) return t; const h=t/3600; const f=P.level==='debutant'?1+Math.min(0.15,0.05*Math.max(0,h-0.75)):P.level==='expert'?1:1+Math.min(0.05,0.02*Math.max(0,h-1.5)); return t*f; }
-  function predict(r,vma){ return lvPen(predict0(r,vma)); }
+  /* ----- % de VMA tenu en course selon niveau et distance (règles du 20/11/2026) -----
+     fourchettes pour une VMA issue d'un test à paliers ; +3 à +4 points si la VMA vient d'un test de 6' (demi-Cooper) */
+  const BANDS={5:[[80,85],[85,90],[88,92]],10:[[76,81],[82,86],[85,89]],21.1:[[70,75],[76,80],[80,84]],42.195:[[62,68],[69,74],[74,79]]};
+  const LI=P.level==='debutant'?0:P.level==='expert'?2:1, NIV=['débutant','confirmé','expert'][LI];
+  function bandAt(km){ const A=[5,10,21.1,42.195], six=P.vmaTest==='six', adj=d=>six?(d<=10?4:d<=21.1?3.5:3):0, L=Math.log;
+    const b=A.map(d=>BANDS[d][LI].map(x=>x+adj(d)));
+    if(km<=5){ const x=L(5/Math.max(km,1))/L(2); return b[0].map(v=>Math.min(100,v+3*x)); }
+    if(km>=42.195){ const x=L(km/42.195)/L(2); return b[3].map((v,j)=>Math.max(45,v-(b[2][j]-b[3][j])*x)); }
+    let i=0; while(i<2&&km>A[i+1]) i++; const x=L(km/A[i])/L(A[i+1]/A[i]); return [0,1].map(j=>b[i][j]+(b[i+1][j]-b[i][j])*x); }
+  const midAt=km=>{ const b=bandAt(km); return (b[0]+b[1])/2; };
+  function kmAtT(tMin,vma){ let lo=0.5, hi=400; for(let i=0;i<40;i++){ const m=(lo+hi)/2; (m/(vma*midAt(m)/100)*60<tMin)?lo=m:hi=m; } return (lo+hi)/2; }
+  function effKm(r){ return (+r.km||0)+(r.type==='nature'?(+r.dplus||0)/100:0); }
+  function predictB(r,vma){ vma=vma||P.vma; const T={roulant:1.0,technique:1.08};
+    if(r.type==='swimrun'){ const sw=(+r.swimKm||0)*10*css()*1.12, seg=+r.swimSeg||Math.max(1,Math.round((+r.swimKm||1)/0.6)), runEff=(+r.km||0)+(+r.dplus||0)/100; let t=3600;
+      for(let i=0;i<30;i++){ const v=vma*midAt(kmAtT(t/60,vma))/100*0.97/1.08; t=sw+runEff/v*3600+seg*60; } return t; }
+    const eff=effKm(r), tf=r.type==='nature'?(T[r.terrain]||1.04):1; return eff/(vma*midAt(eff)/100*(r.type==='nature'?0.97:1))*3600*tf; }
+  function raceBand(r,t,vma){ if(r.type==='swimrun') return bandAt(kmAtT(t/60,vma)); return bandAt(effKm(r)); }
+  function predict(r,vma){ return (V3||!BUILD)?predictB(r,vma):predict0(r,vma); }
   function predict0(r,vma){
     vma=vma||P.vma; const T={roulant:1.0,technique:1.08};
     if(r.type==='swimrun'){
@@ -382,6 +398,19 @@ function makeEngine(S,H){ H=H||{};
     const a=evalSolo(r,today); let pNow=a.pNow, pDay=a.pDay, w=a.w, slower=null, duo=null;
     if(r.duo&&r.type==='swimrun'&&H.partnerEval){ const b=H.partnerEval(r,today); if(b){ duo=b.name; if(b.pDay>pDay) slower=b.name; pNow=Math.max(pNow,b.pNow); pDay=Math.max(pDay,b.pDay); } }
     const goal=parseHMS(r.goal); let ev=null;
+    if(V3||!BUILD){ const vD=P.vma*(1+0.003*Math.min(w,12)), b=raceBand(r,pDay,vD).map(x=>Math.round(x)), [lo,hi]=b, mid=(lo+hi)/2;
+      const tAt=p=>pDay*mid/p, gp=goal?Math.round(mid*pDay/goal):null, km=+r.km||0;
+      const dl=r.type==='route'?(km<=6?'5 km':km<=12?'10 km':km<=25?'semi-marathon':km<=45?'marathon':km+' km'):r.type==='nature'?'ce trail (effort ≈ '+Math.round(effKm(r))+' km)':'ce swimrun';
+      const fx='un '+NIV+' tient en général '+lo+'–'+hi+' % de sa VMA sur '+dl;
+      if(goal){
+        ev = gp>hi+3?{k:'irr',l:'Irréaliste pour l\'instant',c:'Ton objectif demande '+gp+' % de ta VMA, alors qu\'' +fx+'. Vise plutôt '+fmtHMS(tAt(hi))+'.'}
+          : gp>hi?{k:'amb',l:'Très ambitieux',c:gp+' % de ta VMA : au-dessus de la fourchette ('+fx+'). Possible si ta VMA progresse ou un jour de grande forme. Repère plus sûr : '+fmtHMS(tAt(hi))+'.'}
+          : gp>=mid+0.5?{k:'amb',l:'Ambitieux',c:gp+' % de ta VMA : haut de la fourchette ('+fx+'). Faisable si la préparation se passe sans accroc.'}
+          : gp>=mid-1.5?{k:'att',l:'Atteignable',c:gp+' % de ta VMA : dans la fourchette ('+fx+').'}
+          : gp>=lo?{k:'rea',l:'Réaliste',c:gp+' % de ta VMA : bas de fourchette ('+fx+'). Tu as de la marge : tu peux viser '+fmtHMS(tAt((mid+hi)/2))+'.'}
+          :       {k:'low',l:'Pas assez ambitieux',c:gp+' % de ta VMA : sous la fourchette ('+fx+'). Vise plutôt '+fmtHMS(tAt(mid))+'.'}; }
+      const tt=goal||pDay; return {pNow,pDay,pSelf:a.pDay,w,goal,ev,duo,slower,suggestAmb:tAt(hi),suggestReal:tAt(mid),warn:raceWarn(r,today),
+        band:b,niv:NIV,dl,vD,pct:goal?gp:Math.round(mid),pace:r.type==='route'&&km?pace(km/(tt/3600)):null}; }
     if(goal){ const q=goal/pDay;
       ev = q<0.95?{k:'irr',l:'Irréaliste pour l\'instant',c:'Ton objectif demande un gain de VMA d\'environ '+Math.round((pDay/goal-1)*100)+' %. Vise d\'abord '+fmtHMS(pDay*0.97)+'.'}
         : q<0.985?{k:'amb',l:'Ambitieux',c:'Faisable si la préparation est suivie sans accroc et que la course se passe bien.'}
@@ -1169,7 +1198,8 @@ function raceCard(r){
   ${r.duo&&ath(r.partner)?`<p class="hint" style="margin:8px 0 0">Binôme : <b>${esc(ath(r._owner).name)}</b> + <b>${esc(ath(r.partner).name)}</b>${ev.slower?` · prévision calée sur ${esc(ev.slower)}`:` · prévision calée sur ${esc(activeAth().name)}`}</p>`:''}
   ${evHTML(ev,true)}</div>`;
 }
-function evHTML(ev,withGoal){ return evHTML0(ev,withGoal)+(ev.warn||[]).map(w=>`<div class="ev amb"><b>${esc(w.l)}</b>${esc(w.c)}</div>`).join(''); }
+function evInfo(ev){ if(!ev.band) return ''; return `<div class="hint" style="margin:8px 0 0">${ev.pace?'Allure '+(ev.goal?'cible':'prévue')+' : <b>'+ev.pace+'</b> · ':''}<b>${ev.pct} %</b> de ta VMA${ev.w?' du jour J (estimée '+v1(ev.vD)+' km/h)':''} · repère ${ev.niv} sur ${ev.dl} : ${ev.band[0]}–${ev.band[1]} %</div>`; }
+function evHTML(ev,withGoal){ return evInfo(ev)+evHTML0(ev,withGoal)+(ev.warn||[]).map(w=>`<div class="ev amb"><b>${esc(w.l)}</b>${esc(w.c)}</div>`).join(''); }
 function evHTML0(ev,withGoal){
   return ev.ev?`<div class="ev ${ev.ev.k}"><b>${withGoal?'Objectif '+fmtHMS(ev.goal)+' : ':''}${ev.ev.l}</b>${withGoal?'':'Prévision jour J : '+fmtHMS(ev.pDay)+'. '}${ev.ev.c}</div>`
     :`<div class="ev low"><b>${withGoal?'Pas d\'objectif chrono':'Prévision jour J : '+fmtHMS(ev.pDay)}</b>Repères : ambitieux ${fmtHMS(ev.suggestAmb)} · réaliste ${fmtHMS(ev.suggestReal)}</div>`;
@@ -1245,9 +1275,11 @@ function profView(){
   <div style="margin-top:10px"><button class="btn ghost sm" data-wzopen="1">Assistant de démarrage (VMA, jours, course)</button></div>
   <div class="toggle" style="margin-top:10px"><span class="small">Séances club communes : quand d'autres sportifs ont une séance de qualité le même jour, la même séance pour tous (allures et répétitions de chacun)</span><button class="sw ${P.noClub?'':'on'}" data-tog="noClub" aria-label="Séances club"></button></div></div>
   <div class="card sec"><h3>VMA</h3><div class="stepper"><button data-vma="-0.1" aria-label="Moins rapide">−</button><input class="big" data-p="vmakmh" inputmode="decimal" value="${(Math.round(P.vma*10)/10).toFixed(1).replace('.',',')}"><button data-vma="0.1" aria-label="Plus rapide">+</button><span class="mut">km/h<br><small>${fmtPaceSec(3600/P.vma)}/km</small></span></div>
+  <label class="f">Ta VMA vient d'un</label><div class="seg">${[['paliers','Test à paliers (VAMEVAL, Léger)'],['six',"Test de 6' (demi-Cooper)"]].map(([k,l])=>`<button class="${(P.vmaTest==='six'?'six':'paliers')===k?'on':''}" data-vtest="${k}">${l}</button>`).join('')}</div>
+  <p class="hint">Un test à paliers donne une VMA un peu plus haute : l'appli ajuste le % de VMA prévu en course.</p>
   <label class="f">Test VMA : distance parcourue (m)</label><div class="grid2"><input class="inp" id="t6" inputmode="numeric" placeholder="Demi-Cooper 6'"><input class="inp" id="t12" inputmode="numeric" placeholder="Cooper 12'"></div>
   <div class="row" style="margin-top:8px"><button class="btn ghost sm" id="tapply">Calculer ma VMA</button></div>
-  <p class="hint">Allure VMA = l'allure que tu tiens environ 6' à fond. Saisis ta distance de test : l'appli calcule l'allure. Ton programme de novembre correspond à une allure VMA d'environ 4'27/km (8 × 100 m en 26"). + = plus rapide, − = plus lent (1 s/km).</p></div>
+  <p class="hint">Allure VMA = l'allure que tu tiens environ 6' à fond. Saisis ta distance de test : l'appli calcule l'allure. Ton programme de novembre correspond à une allure VMA d'environ 4'27/km (8 × 100 m en 26"). + / − : 0,1 km/h.</p></div>
 
   <div class="card sec"><h3>Cardio</h3><div class="grid2"><div><label class="f">FC max (bpm)</label><input class="inp" inputmode="numeric" data-p="fcmax" value="${esc(P.fcmax||'')}" placeholder="Estimée : ${est}"></div>
   <div><label class="f">FC repos (bpm)</label><input class="inp" inputmode="numeric" data-p="fcrepos" value="${esc(P.fcrepos||'')}" placeholder="60 par défaut"></div></div>
@@ -1369,6 +1401,7 @@ document.addEventListener('click',async e=>{
   else if(t=e.target.closest('[data-lr]')){ P.lrDay=t.dataset.lr===''?null:+t.dataset.lr; if(P.lrDay!=null&&!P.avail.run.includes(P.lrDay)) P.avail.run=[...P.avail.run,P.lrDay].sort(); save(); render(); }
   else if(t=e.target.closest('[data-sex]')){ P.sex=t.dataset.sex; save(); render(); }
   else if(t=e.target.closest('[data-pool]')){ P.poolLen=+t.dataset.pool; save(); render(); }
+  else if(t=e.target.closest('[data-vtest]')){ P.vmaTest=t.dataset.vtest; save(); render(); }
   else if(t=e.target.closest('[data-hmax]')){ P.hillMax=+t.dataset.hmax; save(); render(); }
   else if(t=e.target.closest('[data-smin]')){ P.swimMin=+t.dataset.smin; P.swimAllYear=P.swimMin>0; save(); render(); }
   else if(t=e.target.closest('[data-tog]')){ P[t.dataset.tog]=!P[t.dataset.tog]; save(); render(); }
@@ -1378,7 +1411,7 @@ document.addEventListener('click',async e=>{
   else if(t=e.target.closest('[data-rset]')){ const k=t.dataset.rset; ROOT.settings[k]=!ROOT.settings[k]; lastCore=''; save(); render(); }
   else if(t=e.target.closest('[data-acol]')){ activeAth().color=t.dataset.acol; save(); render(); }
   else if(e.target.id==='adel'){ if(e.target.dataset.sure){ const id=ROOT.active; if(G.on) gMarkDeleted(id); ROOT.profiles=ROOT.profiles.filter(p=>p.id!==id); ROOT.profiles.forEach(p=>{ if(!p.ro) p.data.races.forEach(r=>{ if(r.partner===id){ r.duo=false; r.partner=null; } }); }); ROOT.active=(editables()[0]||ROOT.profiles[0]).id; refresh(); open.clear(); save(); view='team'; render(); toast('Sportif supprimé'); } else { e.target.dataset.sure=1; e.target.textContent='Confirmer : supprimer '+activeAth().name+' et tout son programme'; } }
-  else if(e.target.id==='tapply'){ const a=+$('#t6').value, b=+$('#t12').value; const v=a?a/100:b?b/200:0; if(v>8&&v<26){ P.vma=Math.round(v*100)/100; save(); render(); toast('Allure VMA mise à jour : '+fmtPaceSec(3600/P.vma)+'/km'); } else toast('Saisis une distance en mètres'); }
+  else if(e.target.id==='tapply'){ const a=+$('#t6').value, b=+$('#t12').value; const v=a?a/100:b?b/200:0; if(v>8&&v<26){ P.vma=Math.round(v*100)/100; P.vmaTest='six'; save(); render(); toast('Allure VMA mise à jour : '+fmtPaceSec(3600/P.vma)+'/km'); } else toast('Saisis une distance en mètres'); }
   else if(e.target.id==='sapply'){ const a=parseHMS($('#s400').value), b=parseHMS($('#s200').value); if(a&&b&&a>b){ P.css=Math.round((a-b)/2); save(); render(); toast('CSS : '+fmtPaceSec(P.css)+'/100 m'); } else toast('Saisis les deux temps, ex. 7:40 et 3:35'); }
   else if(e.target.id==='saHtml'){ SA.saveHtml(); }
   else if(e.target.id==='saLink'){ SA.link(); }
@@ -2638,7 +2671,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261119174541';
+const BUILD='20261119182027';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

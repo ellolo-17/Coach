@@ -358,7 +358,9 @@ function makeEngine(S,H){ H=H||{};
 
   /* ----- prédiction ----- */
   function frac(tMin){ return tMin<=6?1:Math.max(0.55,1-0.06*Math.log(tMin/6)); }
-  function predict(r,vma){
+  function lvPen(t){ if(!(V3||!BUILD)) return t; const h=t/3600; const f=P.level==='debutant'?1+Math.min(0.15,0.05*Math.max(0,h-0.75)):P.level==='expert'?1:1+Math.min(0.05,0.02*Math.max(0,h-1.5)); return t*f; }
+  function predict(r,vma){ return lvPen(predict0(r,vma)); }
+  function predict0(r,vma){
     vma=vma||P.vma; const T={roulant:1.0,technique:1.08};
     if(r.type==='swimrun'){
       const sw=(+r.swimKm||0)*10*css()*1.12, seg=+r.swimSeg||Math.max(1,Math.round((+r.swimKm||1)/0.6));
@@ -387,9 +389,24 @@ function makeEngine(S,H){ H=H||{};
         : q<1.05 ?{k:'rea',l:'Réaliste',c:'Sûr d\'être atteint. Tu peux viser un peu plus vite.'}
         :         {k:'low',l:'Pas assez ambitieux',c:'Tu as de la marge : vise plutôt '+fmtHMS(pDay*0.99)+'.'};
     }
-    return {pNow,pDay,pSelf:a.pDay,w,goal,ev,duo,slower,suggestAmb:pDay*0.97,suggestReal:pDay*1.01};
+    return {pNow,pDay,pSelf:a.pDay,w,goal,ev,duo,slower,suggestAmb:pDay*0.97,suggestReal:pDay*1.01,warn:raceWarn(r,today)};
   }
   function raceDur(r){ return predict(r); }
+  /* ----- adéquation course / niveau / délai (règles du 20/11/2026) ----- */
+  function raceCat(r){ const km=+r.km||0;
+    if(r.type==='swimrun') return km>20?'long':'semi';
+    if(r.type==='nature'){ const e=km+(+r.dplus||0)/100; return km>30?'long':e<=12?'10k':e<=25?'semi':'long'; }
+    return km<=12?'10k':km<=25?'semi':'marathon'; }
+  function raceWarn(r,today){ if(!r||!r.date||!+r.km) return []; const out=[]; const now=today||new Date();
+    const w=weeksBetween(mondayOf(now),mondayOf(parseD(r.date))); if(w<0) return out;
+    const cat=raceCat(r), L=P.level==='debutant'?0:P.level==='expert'?2:1, NV=['débutant','confirmé','expert'][L];
+    const MIN={'10k':[7,4,3],semi:[11,7,5],marathon:[16,11,8],long:[13,9,7]}[cat][L];
+    const LBL={'10k':'cette distance',semi:'cette distance',marathon:'un marathon',long:'une course longue'}[cat];
+    if(L===0&&(cat==='marathon'||(r.type==='nature'&&(+r.km||0)>40)))
+      out.push({k:'dist',l:'Distance exigeante pour un débutant',c:(cat==='marathon'?'Un marathon demande en général plus d\'une saison de course régulière.':'Un trail de plus de 40 km demande une base d\'endurance solide.')+' Alternative : '+(cat==='marathon'?'vise d\'abord un semi-marathon cette saison.':'vise d\'abord un trail de 20 à 30 km.')});
+    if(w<MIN&&r.prio!=='C'){ const d=addDays(mondayOf(now),7*MIN+6);
+      out.push({k:'delai',l:'Préparation courte',c:w+' semaine'+(w>1?'s':'')+' de préparation pour '+LBL+' : on conseille au moins '+MIN+' semaines au niveau '+NV+'. Alternative : garde-la en course de préparation (priorité C, sans objectif chrono) ou choisis une course à partir du '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+'.'}); }
+    return out; }
   function raceSpeed(r){ const ev=evaluate(r);
     if(r.type==='swimrun'){ const t=(ev.goal&&ev.goal>=ev.pDay*0.95)?ev.goal:ev.pDay; return P.vma*(1+0.003*Math.min(ev.w,12))*frac(ev.pSelf/60)*0.95/1.08*(ev.pSelf/t); } const t=(ev.goal && ev.goal>=ev.pDay*0.95)?ev.goal:ev.pDay; const eff=(+r.km||0); return eff/(t/3600); }
 
@@ -463,7 +480,7 @@ function makeEngine(S,H){ H=H||{};
   function lrDur0(c){
     const r5=x=>Math.round(x/5)*5, ref=c.target||c.aNext, mx=ref?maxLRof(ref):75;
     if(c.phase==='Récupération'||c.phase==='Reprise') return 45;
-    if(c.phase==='Assimilation') return Math.max(45,r5(lrNominal(c)*0.7));
+    if(c.phase==='Assimilation') return Math.max(45,r5(lrNominal(c)*(V3?0.75:0.7)));
     if(c.phase==='Affûtage') return r5(mx*(c.w===2?0.8:0.6));
     return r5(lrNominal(c));
   }
@@ -471,7 +488,7 @@ function makeEngine(S,H){ H=H||{};
   function footing(dur,plus){ dur=Math.min(dur,CAP); return {cat:'run',type:'Footing',title:'Footing '+dur+"'",sum:dur+"' · "+hrR(65,75),dur,wk:{warm:false,blocks:[{iter:1,steps:[{p:'work',g:['time',dur*60],hr:[hr(65),hr(75)]}]}]},
     blocks:[{h:'Séance',l:[dur+"' en endurance fondamentale : "+hrR(65,75)+', ne dépasse pas '+hr(75)+' bpm','Repère allure : '+range(65,75)].concat(plus?[plus]:[])}]}; }
   function longRun(c){
-    const dur=Math.min(lrDuration(c),CAP), k=c.kind, spe=c.phase==='Spécifique'; const l=[]; let title='Sortie longue '+fmtMin(dur);
+    const dur=Math.min(lrDuration(c),CAP), k=c.kind, spe=c.phase==='Spécifique'&&!(V3&&LRSOFT&&k!=='swimrun'); const l=[]; let title='Sortie longue '+fmtMin(dur);
     l.push(dur+"' en endurance fondamentale : "+hrR(65,75)+', ne dépasse pas '+hr(75)+' bpm'); l.push('Repère allure : '+range(65,75));
     if(spe&&k==='semi'){ const p=Math.round(raceSpeed(c.target)/P.vma*100); l.push('Dont '+(c.w<=3?"3 × 12'":"2 × 12'")+' à allure semi : '+pace(raceSpeed(c.target))+' ('+p+' % VMA), récup 3\' footing'); }
     if(spe&&k==='marathon'){ const v=raceSpeed(c.target); l.push('Dont '+(c.w<=3?"2 × 25'":"3 × 15'")+' à allure marathon : '+pace(v)+', récup 5\' footing'); l.push('Teste ton ravitaillement (gel/boisson toutes les 30–40\')'); }
@@ -484,6 +501,8 @@ function makeEngine(S,H){ H=H||{};
   }
   /* ----- règles v2 (à partir du 23/11/2026) : seuil débutant plus court, côtes limitées à la côte disponible ----- */
   const V2FROM='2026-11-18'; let V2=false; const DEB=P.level==='debutant';
+  /* règles v3 (à partir du 20/11/2026) : niveaux différenciés, dosage de l'intensité, allègements −25 %, experts 6 sorties, renfo par niveau */
+  const V3FROM='2026-11-20'; let V3=false, BUILD=false, LRSOFT=false; const EXP=P.level==='expert';
   const HMAX=()=>P.hillMax!=null?+P.hillMax:60;
   const SEUIL_DEB=[
     m=>({t:"Seuil · 4 × 3'",l:[reps(4,{t:180},85,"1'30 trot",m)],mm:16.5,fix:true}),
@@ -621,9 +640,14 @@ function makeEngine(S,H){ H=H||{};
     R2:{t:'Renfo · coureur nature',l:['Squats bulgares 3 × 10 par jambe','Fentes marchées 3 × 12','Mollets excentriques sur marche (descente en 3") 3 × 15','Step-down contrôlé 3 × 10 par jambe (prépare les descentes)','Gainage dynamique 3 × 40"'],d:30},
     R3:{t:'Renfo · haut du corps swimrun',l:['Élastique : tirage type crawl 3 × 20','Rotations externes d\'épaule à l\'élastique 3 × 15','Pompes 3 × 10','Superman 3 × 12','Planche 3 × 45"'],d:25},
     R4:{t:'Mobilité & récupération',l:['Mobilité hanches et chevilles 10\'','Rouleau de massage mollets, quadriceps, ischios','Étirements doux 10\''],d:20},
+    R5:{t:'Renfo · prévention chevilles & genoux',l:['Montées sur pointes de pieds 3 × 15','Équilibre unipodal sur coussin ou serviette 3 × 30" par jambe','Abducteurs allongé sur le côté 3 × 15 par jambe','Pont fessier 3 × 15','Planche sur les genoux ou complète 3 × 30"'],d:25},
+    R6:{t:'Renfo · force & pliométrie',l:['Squats sautés 3 × 8','Bonds alternés (foulées bondissantes) 3 × 10 par jambe','Sauts sur une jambe sur place 3 × 15 par jambe','Squats bulgares lestés 3 × 8 par jambe','Gainage avec élévation de jambe 3 × 40"'],d:30},
   };
-  function renfo(c,idx,force){ let k;
+  function renfo(c,idx,force){ let k; const nat=c.kind==='nature'||(c.target&&+c.target.dplus>200);
     if(force) k=force; else if(c.phase==='Récupération'||c.phase==='Reprise') k='R4';
+    else if(V3&&c.swimT&&idx%2===0) k='R3';
+    else if(V3&&DEB) k=idx%2?'R5':(nat?'R2':'R1');
+    else if(V3&&EXP) k=idx%2?'R6':(nat?'R2':'R1');
     else if(c.swimT && idx%2===0) k='R3';
     else if(c.kind==='nature'||(c.target&&+c.target.dplus>200)) k=idx%2?'R1':'R2';
     else k=idx%2?'R2':'R1';
@@ -656,7 +680,7 @@ function makeEngine(S,H){ H=H||{};
   const PREFS={'Seuil':['fartlek','tempo','cotesSeuil','courtes'],'VMA courte':['cotesC','fartV'],'VMA longue':['cotesL','fartL'],'Côtes':['plat','fartlek']};
   function altsFor(s,c,iw,cap){
     if(s.noAlt||s.cat==='race'||s.cat==='off') return null;
-    const v2=V2, keepV=f=>()=>{ const o=V2; V2=v2; try{ return f(); } finally{ V2=o; } };
+    const v2=V2, v3=V3, ls=LRSOFT, keepV=f=>()=>{ const o=V2, o3=V3, ob=BUILD, ol=LRSOFT; V2=v2; V3=v3; BUILD=true; LRSOFT=ls; try{ return f(); } finally{ V2=o; V3=o3; BUILD=ob; LRSOFT=ol; } };
     const mk=id=>({id,l:ALT[id].l,why:ALT[id].why,make:keepV(()=>withCap(cap,()=>ALT[id].make(c,s)))});
     const variant=(id,l,why,f)=>({id,l,why,make:keepV(()=>withCap(cap,f))});
     const ids={'Seuil':['fartlek','tempo','cotesSeuil','courtes'],'VMA courte':['cotesC','fartV'],'VMA longue':['cotesL','fartL'],'Côtes':['plat','fartlek'],
@@ -668,7 +692,7 @@ function makeEngine(S,H){ H=H||{};
     if(s.type==='Piscine'&&s._li!=null){ const nm=['Technique & endurance','Seuil CSS','Spécifique swimrun','Endurance longue','Vitesse & relances'], why=['Plus de technique, intensité modérée','Travail au seuil (CSS)','Pull-buoy, plaquettes et visée','Volume en endurance','Vitesse et départs'];
       L=[0,1,2,3,4].filter(i=>i!==s._li).map(i=>variant('pool'+i,'Piscine · '+nm[i],why[i],()=>swimPool(c,0,s._ph||'base',i))); }
     if(s.type==='Eau libre'&&s._oi!=null){ L=[0,1,2].filter(i=>i!==s._oi).map(i=>variant('ow'+i,['Eau libre · repères','Eau libre · enchaînements','Eau libre · continu'][i],'Autre séance en eau libre',()=>swimOW(c,i))).concat([variant('pool2','Piscine · Spécifique swimrun','Si l\'eau libre n\'est pas possible',()=>swimPool(c,0,'spe',2))]); }
-    if(s.type==='Renfo'&&s._rk){ L=Object.keys(RENFO).filter(k=>k!==s._rk).map(k=>variant('renfo'+k,RENFO[k].t,k==='R4'?'Plus doux : mobilité et récupération':'Autre circuit de renforcement',()=>renfo(c,0,k))); }
+    if(s.type==='Renfo'&&s._rk){ L=Object.keys(RENFO).filter(k=>k!==s._rk&&(V3||!/R[56]/.test(k))).map(k=>variant('renfo'+k,RENFO[k].t,k==='R4'?'Plus doux : mobilité et récupération':'Autre circuit de renforcement',()=>renfo(c,0,k))); }
     return L.length?L:null;
   }
 
@@ -685,11 +709,13 @@ function makeEngine(S,H){ H=H||{};
   }
 
   /* ----- semaine ----- */
-  function buildWeek(ws){ const end=ymd(addDays(ws,6)), st=ymd(ws);
-    if(st>=V2FROM||end<V2FROM){ V2=st>=V2FROM; return buildWeek0(ws); }
-    // semaine de bascule : jours avant la date avec les anciennes règles, ensuite les nouvelles
-    V2=false; const a=buildWeek0(ws); V2=true; const b=buildWeek0(ws); const r=Object.assign({},b,{days:{},qRaw:{}});
-    for(let i=0;i<7;i++){ const nw=ymd(addDays(ws,i))>=V2FROM, src=nw?b:a; r.days[i]=src.days[i]; if(src.qRaw&&src.qRaw[i]) r.qRaw[i]=src.qRaw[i]; }
+  const verOf=d=>d>=V3FROM?3:d>=V2FROM?2:1;
+  function buildV(ws,v){ const o3=V3, ob=BUILD; V2=v>=2; V3=v>=3; BUILD=true; try{ return buildWeek0(ws); } finally{ V3=o3; BUILD=ob; LRSOFT=false; } }
+  function buildWeek(ws){ const vs=[0,1,2,3,4,5,6].map(i=>verOf(ymd(addDays(ws,i))));
+    if(vs.every(v=>v===vs[0])) return buildV(ws,vs[0]);
+    // semaine de bascule : chaque jour avec les règles en vigueur à sa date
+    const W={}; for(const v of new Set(vs)) W[v]=buildV(ws,v); const last=W[vs[6]]; const r=Object.assign({},last,{days:{},qRaw:{}});
+    for(let i=0;i<7;i++){ const src=W[vs[i]]; r.days[i]=src.days[i]; if(src.qRaw&&src.qRaw[i]) r.qRaw[i]=src.qRaw[i]; }
     return r; }
   function buildWeek0(ws){
     let c=weekCtx(ws); const C0=c, Av=P.avail, maxR=Math.max(1,+P.maxRun||4);
@@ -698,8 +724,10 @@ function makeEngine(S,H){ H=H||{};
     let N={'Foncier':3,'Développement':4,'Spécifique':4,'Affûtage':3,'Semaine de course':3,'Assimilation':2,'Récupération':2,'Reprise':3}[ph];
     if(ph==='Spécifique'&&(c.kind==='marathon'||c.kind==='nature')&&maxR>=5) N=5;
     if(ph==='Foncier'&&maxR>=5) N=4;
+    if(V3&&ph==='Assimilation') N=maxR>=5?4:3; // allègement : même nombre de sorties, durées réduites
+    if(V3&&EXP){ const x={'Foncier':5,'Développement':6,'Spécifique':6,'Affûtage':4,'Assimilation':5}[ph]; if(x) N=x; }
     if(P.level==='debutant') N=Math.min(N,3);
-    if(P.level==='expert'&&(ph==='Développement'||ph==='Spécifique')) N+=1;
+    if(!V3&&P.level==='expert'&&(ph==='Développement'||ph==='Spécifique')) N+=1;
     N=Math.min(N,maxR,new Set(Av.run.concat(P.lrDay!=null?[+P.lrDay]:[])).size);
     let roles;
     switch(ph){
@@ -712,6 +740,7 @@ function makeEngine(S,H){ H=H||{};
       case 'Reprise': roles=['R','R','E']; break;
       default: roles=['Q1','E','E'];
     }
+    if(V3){ if(ph==='Assimilation') roles=['LR','E+','E','E','E']; else if(roles.length<6&&EXP) roles=roles.concat(['E']); }
     roles=roles.slice(0,N);
     const raceDays=c.inWeek.map(r=>({r,d:wd(parseD(r.date))}));
     const runAv=[...new Set(Av.run.concat(P.lrDay!=null&&roles.includes('LR')?[+P.lrDay]:[]))];
@@ -732,6 +761,18 @@ function makeEngine(S,H){ H=H||{};
         }
       }
     }
+    LRSOFT=false;
+    if(V3){ // dosage de l'intensité selon le niveau
+      const nRun=Object.keys(runMap).length, cap=DEB?(nRun>=4?2:1):EXP?(nRun>=5?3:2):2;
+      const lrSpe=ph==='Spécifique'&&Object.values(runMap).includes('LR')&&(['semi','marathon','10k'].includes(c.kind)||(c.kind==='swimrun'&&c.w<=4));
+      if(lrSpe&&(DEB||c.kind==='10k')) LRSOFT=true;
+      const qs=Object.keys(runMap).filter(k=>runMap[k]==='Q1'||runMap[k]==='Q2');
+      let over=qs.length+(lrSpe&&!LRSOFT?1:0)-cap;
+      if(over>0){ const q2=qs.find(k=>runMap[k]==='Q2'), q1=qs.find(k=>runMap[k]==='Q1');
+        // débutant en développement : une semaine sur deux on garde la séance au seuil plutôt que la VMA
+        const drop=(DEB&&ph==='Développement'&&iw%2&&q1&&q2)?q1:(q2||q1);
+        if(drop){ runMap[drop]='EQ'; over--; }
+        if(over>0){ const k=Object.keys(runMap).find(k=>runMap[k]==='Q1'||runMap[k]==='Q2'); if(k) runMap[k]='EQ'; } } }
     const isTest=(ph==='Foncier'&&!c.target&&iw%8===0)||(c.target&&c.w===12);
     const qRaw={};
     for(const [k,role] of Object.entries(runMap)){
@@ -752,10 +793,13 @@ function makeEngine(S,H){ H=H||{};
         else s=(c.kind==='nature'||(c.target&&+c.target.dplus>300))&&iw%2? quality('COTES',c,iw) : (iw%2?quality('VMAL',c,Math.floor(iw/2)%3):quality('SEUIL',c,Math.floor(iw/2)%3));
       }
       else if(role==='R') s=footing(30,'Reprise : 30\' très souple. Arrête si la douleur ou la fatigue revient');
+      else if(role==='E+'&&V3) s=DEB?footing(35,'Rappel de rythme : 6 × 30" un peu plus vite, au feeling, récup 1\' footing'):footing(EXP?50:45,'Rappel de rythme : '+(EXP?5:4)+' × 2\' à allure seuil ('+pace(kmh(85))+'), récup 1\' footing. Semaine allégée : rien de plus');
+      else if(role==='EQ') s=footing(DEB?40:EXP?55:45,'+ 5 lignes droites de 80 m en fin de footing (accélérations progressives). Footing facile pour équilibrer la semaine : '+(DEB?'une seule séance dure à ton niveau':'pas plus de séances dures cette semaine'));
       else if(role==='E+') s=footing(40,'Fartlek libre : 6 × 30" un peu plus vite, au feeling');
       else if(role==='E-') s=footing(30,'Footing de récupération, très souple');
       else if(role==='PRE') s=footing(20,'+ 3 accélérations progressives de 80 m. Veille de course : repos');
-      else s=footing(ph==='Récupération'||ph==='Reprise'?35:ph==='Affûtage'?35:ph==='Foncier'?Math.round((40+10*foncierProg(c))/5)*5:45, ph==='Foncier'?'+ 4 lignes droites de 80 m en fin de footing':null);
+      else if(V3&&ph==='Assimilation') s=footing(DEB?35:EXP?45:40,'Semaine allégée : footing souple');
+      else s=footing((ph==='Récupération'||ph==='Reprise'?35:ph==='Affûtage'?35:ph==='Foncier'?Math.round((40+10*foncierProg(c))/5)*5:45)+(V3&&EXP&&ph!=='Récupération'&&ph!=='Reprise'?10:0), ph==='Foncier'?'+ 4 lignes droites de 80 m en fin de footing':null);
       // séances club communes : on note la séance « brute » puis on aligne sur le thème du club
       const flex=(role==='Q1'||role==='Q2')&&s.qk&&!isTest&&!raceDays.length&&(ph==='Foncier'||ph==='Développement');
       if(s.qk) qRaw[d]={k:s.qk,m:s.qm,flex};
@@ -767,7 +811,7 @@ function makeEngine(S,H){ H=H||{};
     CAP=Infinity;
     for(const {r,d} of raceDays) out[d].unshift(raceSession(r));
     // natation
-    const sMin=Math.max(+P.swimMin||0,P.swimAllYear&&P.swimMin==null?1:0);
+    const sMin=Math.max(+P.swimMin||0,P.swimAllYear&&P.swimMin==null?1:0,V3&&races().some(r=>r.type==='swimrun'&&parseD(r.date)>=ws)?1:0);
     if(c.swimT||sMin>0){
       let nS, sph;
       if(!c.swimT){ nS=1; sph='base'; }
@@ -1125,7 +1169,8 @@ function raceCard(r){
   ${r.duo&&ath(r.partner)?`<p class="hint" style="margin:8px 0 0">Binôme : <b>${esc(ath(r._owner).name)}</b> + <b>${esc(ath(r.partner).name)}</b>${ev.slower?` · prévision calée sur ${esc(ev.slower)}`:` · prévision calée sur ${esc(activeAth().name)}`}</p>`:''}
   ${evHTML(ev,true)}</div>`;
 }
-function evHTML(ev,withGoal){
+function evHTML(ev,withGoal){ return evHTML0(ev,withGoal)+(ev.warn||[]).map(w=>`<div class="ev amb"><b>${esc(w.l)}</b>${esc(w.c)}</div>`).join(''); }
+function evHTML0(ev,withGoal){
   return ev.ev?`<div class="ev ${ev.ev.k}"><b>${withGoal?'Objectif '+fmtHMS(ev.goal)+' : ':''}${ev.ev.l}</b>${withGoal?'':'Prévision jour J : '+fmtHMS(ev.pDay)+'. '}${ev.ev.c}</div>`
     :`<div class="ev low"><b>${withGoal?'Pas d\'objectif chrono':'Prévision jour J : '+fmtHMS(ev.pDay)}</b>Repères : ambitieux ${fmtHMS(ev.suggestAmb)} · réaliste ${fmtHMS(ev.suggestReal)}</div>`;
 }
@@ -2221,7 +2266,7 @@ function groupView(){ CLUBR=[];
       <div style="flex:1;min-width:0"><b>${esc(r0.name)}</b><div class="small mut">${TYPES[r0.type]||''} · ${desc}${gg.length>1?' · <b>'+gg.length+' du club</b>':''}</div></div>${raceBtn(st,'g')}</div>`;
     for(const {r,p} of gg){ let ev=null; try{ ev=eng(p.id).evaluate(Object.assign({},r,{_owner:p.id})); }catch(e){}
       const partner=r.duo&&ath(r.partner)?' + '+esc(ath(r.partner).name):'';
-      h+=`<div class="gline">${dot(p)}<span class="nm">${esc(p.name)}${partner} <span class="prio ${r.prio} mini">${r.prio}</span></span><span class="tx">${ev&&ev.goal?'Objectif '+fmtHMS(ev.goal):'Prévision '+(ev?fmtHMS(ev.pDay):'—')}</span>${ev&&ev.ev?`<span class="evchip ${ev.ev.k}">${esc(ev.ev.l)}</span>`:''}</div>`; }
+      h+=`<div class="gline">${dot(p)}<span class="nm">${esc(p.name)}${partner} <span class="prio ${r.prio} mini">${r.prio}</span></span><span class="tx">${ev&&ev.goal?'Objectif '+fmtHMS(ev.goal):'Prévision '+(ev?fmtHMS(ev.pDay):'—')}</span>${ev&&ev.ev?`<span class="evchip ${ev.ev.k}">${esc(ev.ev.l)}</span>`:''}${ev&&ev.warn&&ev.warn.length?`<span class="evchip amb" title="${esc(ev.warn.map(w=>w.l).join(' · '))}">À vérifier</span>`:''}</div>`; }
     h+='</div>'; }
   return h+'<p class="hint">👥 = séance club : même séance que d\'autres le même jour, chacun à ses allures. Désactivable dans Profil › Allures.</p>';
 }
@@ -2593,7 +2638,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261118101310';
+const BUILD='20261119174541';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

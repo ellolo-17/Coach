@@ -620,7 +620,7 @@ function makeEngine(S,H){ H=H||{};
       blocks:[{h:'Échauffement',l:[WARM(wc[0])]},{h:'Corps de séance',l:[t,'Allure cible : '+pace(v),'Objectif : mémoriser la sensation de l\'allure de course']},{h:'Retour au calme',l:[COOL(wc[1])]}]};
   }
   function vmaTest(c){ return {cat:'run',type:'Test VMA',title:'Test VMA (demi-Cooper)',sum:"6' à fond",dur:45,q:true,wk:{warm:true,blocks:[{iter:1,steps:[{p:'work',g:['time',360]}]}]},
-    blocks:[{h:'Échauffement',l:[WARM()]},{h:'Test',l:["6' le plus vite possible, allure régulière, sur piste idéalement",'Note la distance parcourue en mètres : l\'appli en déduit ton allure VMA','Saisis le résultat dans Profil → Test VMA : toutes tes allures se recalculent']},{h:'Retour au calme',l:[COOL()]}]}; }
+    blocks:[{h:'Échauffement',l:[WARM()]},{h:'Test',l:["6' le plus vite possible, allure régulière, sur piste idéalement",'Note la distance parcourue en mètres : l\'appli en déduit ton allure VMA','Saisis le résultat dans Profil › Ma VMA › « J\'ai fait un test » : toutes tes allures se recalculent']},{h:'Retour au calme',l:[COOL()]}]}; }
 
   /* ----- natation ----- */
   function swimPool(c,idx,ph,force){
@@ -1521,7 +1521,7 @@ function teamView(){
   let h=`<div class="row between" style="margin:8px 0 12px"><h2 class="cond" style="margin:0;font-size:26px;text-transform:uppercase">Sportifs</h2>${ROOT.profiles.length<MAXATH?'<button class="btn" data-addath="1">+ Ajouter</button>':''}</div><div class="list">`;
   for(const p of editables()){ const e=engineFor(p.id,true); const ns=nextSession(p.id);
     const R=racesFor(p.id).filter(r=>r.date>=TODAY).sort((x,y)=>x.date<y.date?-1:1), g=R.find(r=>r.prio==='A')||R[0];
-    const lbl=ns?(ymd(ns.d)===TODAY?"Aujourd'hui":ns.d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric'}))+' : '+ns.ss.map(s=>s.title).join(' + '):'Aucune séance prévue';
+    const lbl=ns?(ymd(ns.d)===TODAY?"Aujourd'hui":ns.d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric'}))+' : '+ns.ss.map(s=>dispTitle(s)).join(' + '):'Aucune séance prévue';
     h+=`<button class="card athcard ${p.id===ROOT.active?'on':''}" data-goath="${p.id}"><div class="row"><span class="adot" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0;text-align:left"><b class="cond" style="font-size:21px">${esc(p.name)}</b><div class="small mut">VMA ${fmtPaceSec(3600/p.data.profile.vma)}/km <small class="kmh">${v1(p.data.profile.vma)} km/h</small> · ${e.weekCtx(mondayOf(new Date())).phase}</div></div>${p.id===ROOT.active?'<span class="chip">Actif</span>':''}</div>
       <div class="small" style="text-align:left;margin-top:8px">▸ ${esc(lbl)}</div>
       <div class="small mut" style="text-align:left;margin-top:2px">🏁 ${g?esc(g.name)+' · '+parseD(g.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'})+' ('+g.prio+')'+(g.duo&&ath(g.partner)?' · binôme':''):'Pas de course prévue'}</div></button>`; }
@@ -1555,46 +1555,47 @@ function guideView(){
   <p class="hint" style="margin:0 0 12px">Touche un thème pour l'ouvrir.</p><div class="list">
   ${G.on||ROOT.profiles.length>1?sec('club','Le club (groupe)',`<ul>
    <li><b>Ton lien personnel</b> ouvre ton programme : ajoute-le à l'écran d'accueil (Safari › Partager › « Sur l'écran d'accueil »). Ne le transmets pas : il permet de modifier ton programme.</li>
-   <li><b>Plus › Groupe</b> : qui s'entraîne aujourd'hui, la semaine et les séances faites de chacun, et le calendrier des courses avec les objectifs. Tu ne modifies que ton profil et tes courses.</li>
-   <li><b>Séances club</b> : quand plusieurs sportifs ont une séance de qualité le même jour, l'appli leur donne la même (chacun à ses allures et à son nombre de répétitions). Pas en phase spécifique ni en semaine de course. Désactivable dans Profil.</li>
+   <li><b>Onglet Groupe</b> : qui s'entraîne aujourd'hui, la semaine et les séances faites de chacun, et le calendrier des courses avec les objectifs. Tu ne modifies que ton profil et tes courses.</li>
+   <li><b>Séances club</b> : quand plusieurs sportifs ont une séance de qualité le même jour, l'appli leur donne la même (chacun à ses allures et à son nombre de répétitions). Pas en phase spécifique ni en semaine de course. Désactivable dans Profil › Réglages avancés › Réglages du sportif.</li>
    <li><b>Courses en commun</b> : même course = préparations calées sur la même date ; « Aussi au départ » l'indique. Binômes swimrun : eau libre et enchaînés placés les mêmes jours si vos disponibilités le permettent.</li>
    <li><b>Hors ligne</b> : l'appli fonctionne sans réseau et envoie tes modifications au retour de la connexion.</li>
    <li><b>Historique</b> : séances faites, ressentis et déplacements de plus de 2 mois s'effacent automatiquement.</li></ul>`):''}
   ${sec('start','1. Bien démarrer',`<ol>
-   <li><b>Plus › Profil → VMA</b> : règle ton allure VMA (boutons + / −, ou saisis la distance d'un test demi-Cooper 6' ou Cooper 12').</li>
-   <li><b>Plus › Profil → Cardio</b> : FC max, FC repos, âge, sexe. Elles donnent tes BPM d'endurance fondamentale (actuellement ${EN.hr(65)}–${EN.hr(75)} bpm).</li>
-   <li><b>Plus › Profil → Natation</b> : ton meilleur 100 m ou, mieux, le test 400/200 m pour ta CSS.</li>
-   <li><b>Plus › Profil → Sportif → Niveau</b> : débutant, confirmé ou expert, pour doser le volume et le fractionné.</li>
-   <li><b>Plus › Profil → Disponibilités</b> : jours de course, natation, renfo, jour de sortie longue, temps max en semaine (${+P.weekdayMax?P.weekdayMax+"'":'sans limite'}).</li>
-   <li><b>Plus › Profil → Fractionné</b> : alternance piste / route (1/1 ou 2/2 semaines) et mixage dans la semaine.</li>
-   <li><b>Plus › Courses</b> : ajoute tes compétitions. Le programme se construit autour.</li></ol>`,true)}
+   <li><b>Plus › Profil › Ma VMA</b> : règle ta VMA (boutons + / −), indique si elle vient d'un test à paliers ou d'un test de 6', ou saisis un résultat avec « J'ai fait un test ».</li>
+   <li><b>Plus › Profil › Réglages avancés › Cardio</b> : FC max, FC repos, âge, sexe. Elles donnent tes BPM d'endurance fondamentale (actuellement ${EN.hr(65)}–${EN.hr(75)} bpm).</li>
+   <li><b>Plus › Profil › Réglages avancés › Natation</b> : ton meilleur 100 m ou, mieux, le test 400/200 m pour ta CSS.</li>
+   <li><b>Plus › Profil › Mon niveau</b> : débutant, confirmé ou expert. Il dose le volume, le nombre de séances dures et les prévisions de course.</li>
+   <li><b>Plus › Profil › Mes jours d'entraînement</b> : jours de course, natation, renfo, jour de sortie longue, temps max en semaine (${+P.weekdayMax?P.weekdayMax+"'":'sans limite'}).</li>
+   <li><b>Plus › Profil › Réglages avancés › Fractionné</b> : alternance piste / route (1/1 ou 2/2 semaines) et mixage dans la semaine.</li>
+   <li><b>Onglet Courses</b> : ajoute tes compétitions. Le programme se construit autour.</li></ol>`,true)}
   ${sec('plan','2. Lire et suivre le programme',`<ul>
-   <li><b>Phases</b> : Foncier → Développement → Spécifique → Affûtage → Semaine de course → Récupération. Une semaine d'allègement revient régulièrement (toutes les 4 semaines, 3 après 50 ans).</li>
-   <li><b>Une séance</b> : touche-la pour voir échauffement, corps de séance et retour au calme. Allure en min/km, km/h en petit, et BPM pour l'endurance.</li>
-   <li><b>Fait ✓</b> : coche le rond à droite. Tu peux alors noter ton <b>ressenti</b> de 1 à 5 et un commentaire.</li>
+   <li><b>Phases</b> : Foncier → Développement → Spécifique → Affûtage → Semaine de course → Récupération. Une semaine allégée revient régulièrement (toutes les 4 semaines ; toutes les 3 pour les débutants et après 50 ans) : volume réduit d'environ un quart, avec un petit rappel de rythme.</li>
+   <li><b>Une séance</b> : touche-la pour voir son déroulé en 3 étapes (échauffement, corps de séance, retour au calme), son profil (hauteur = intensité) et « Pourquoi cette séance ? ». Les BPM, % de VMA et gammes sont dans « Détails pour les connaisseurs ».</li>
+   <li><b>Fait</b> : le bouton orange ouvre une petite fenêtre : faite comme prévu, faite différemment (tu notes durée et distance) ou pas faite (tu peux la changer de jour), et ton ressenti. Dans le Programme, le rond à droite coche directement.</li>
    <li><b>Alerte fatigue</b> : si tes dernières séances sont notées dures, un bandeau propose d'alléger la semaine en un geste.</li>
-   <li><b>Changer de séance</b> : dans la séance ouverte, « ↻ Changer de séance » propose des alternatives qui travaillent le même objectif (ex. le seuil en fartlek nature, tempo progressif, côtes ou fractions courtes ; un footing en vélo ou marche nordique). Coche l'option pour en faire une préférence permanente, réglable aussi dans Profil → Préférences de séances.</li>
-   <li><b>Déplacer</b> : dans la séance ouverte, choisis un autre jour de la même semaine. Re-choisis le jour d'origine pour l'annuler.</li>
-   <li><b>Onglet Aujourd'hui</b> : la séance du jour en grand, avec son schéma (barre colorée : vert EF, jaune tempo, orange seuil, rouge VMA, gris récup), les chiffres clés et 3 boutons : ✓ Fait, ⌚ Montre, ↻ Changer. Plus bas : demain, la semaine en pastilles avec la jauge de volume, et ton objectif.</li>
+   <li><b>Changer de séance</b> : dans la séance ouverte, bouton ⋯ → « Changer de séance » propose des alternatives qui travaillent le même objectif (ex. le seuil en fartlek nature, tempo progressif, côtes ou fractions courtes ; un footing en vélo ou marche nordique). Coche l'option pour en faire une préférence permanente, réglable aussi dans Profil › Réglages avancés › Préférences de séances.</li>
+   <li><b>Changer de jour</b> : dans la séance ouverte, bouton ⋯ → « Changer de jour », puis choisis un autre jour de la même semaine. Re-choisis le jour d'origine pour l'annuler.</li>
+   <li><b>Onglet Aujourd'hui</b> : la séance du jour en grand, avec son profil (hauteur = intensité, gris = échauffement et récupération), son déroulé en 3 lignes et 3 boutons : Fait, Montre et ⋯ (noter ce que j'ai fait, modifier, changer de séance ou de jour, agenda, supprimer). Plus bas : demain, la semaine en pastilles avec la jauge de volume, et ton objectif.</li>
    <li><b>Programme</b> : touche une séance pour ouvrir sa fiche plein écran. Balaye vers la droite pour la marquer faite, vers la gauche pour la changer.</li>
-   <li><b>📅 Une séance dans le calendrier</b> : ouvre la séance → « Ajouter au calendrier », choisis l'heure (l'appli retient ton heure habituelle semaine / week-end), puis envoie-la par Mail et touche la pièce jointe → « Ajouter au calendrier ».</li>
-   <li><b>Semaines figées 🔒</b> : une fois terminée, une semaine ne change plus, même si tu modifies tes courses ou ta VMA. Profil → « Recalculer les semaines passées » pour forcer un recalcul.</li>
-   <li><b>Test VMA</b> : il apparaît régulièrement. Saisis le résultat dans Profil, toutes les allures se mettent à jour.</li></ul>`)}
+   <li><b>📅 Une séance dans le calendrier</b> : ouvre la séance → ⋯ → « Ajouter à mon agenda », choisis l'heure (l'appli retient ton heure habituelle semaine / week-end), puis envoie-la par Mail et touche la pièce jointe → « Ajouter au calendrier ».</li>
+   <li><b>Semaines figées 🔒</b> : une fois terminée, une semaine ne change plus, même si tu modifies tes courses ou ta VMA. Profil › Réglages avancés › Réglages du sportif → « Recalculer les semaines passées » pour forcer un recalcul.</li>
+   <li><b>Test VMA</b> : il apparaît régulièrement. Saisis le résultat dans Profil › Ma VMA → « J'ai fait un test » : toutes les allures se mettent à jour.</li>
+   <li><b>Plan importé</b> (Word ou PDF) : Programme → ⋯ → Importer un plan. Ses séances remplacent celles de l'appli ; la suggestion de l'appli reste visible sous chaque séance (« + Voir la suggestion de l'appli »).</li></ul>`)}
   ${sec('races','3. Courses et objectifs',`<ul>
    <li><b>Priorité</b> : <b>A</b> = objectif majeur (préparation et affûtage complets), <b>B</b> = importante (mini-affûtage), <b>C</b> = course d'entraînement (remplace une séance).</li>
-   <li><b>Objectif chrono</b> (facultatif) : l'appli le classe <i>irréaliste pour l'instant</i>, <i>ambitieux</i>, <i>atteignable</i>, <i>réaliste</i> ou <i>pas assez ambitieux</i>, à partir de ta prévision le jour J.</li>
+   <li><b>Objectif chrono</b> (facultatif) : l'appli calcule le % de ta VMA qu'il demande et le compare à ce que tient en général un sportif de ton niveau sur cette distance : <i>irréaliste pour l'instant</i>, <i>très ambitieux</i>, <i>ambitieux</i>, <i>atteignable</i>, <i>réaliste</i> ou <i>pas assez ambitieux</i>. Elle signale aussi une préparation trop courte ou une distance exigeante pour un débutant.</li>
    <li><b>Nature</b> : indique le D+ et le terrain (roulant / technique) : côtes et sorties vallonnées sont ajoutées.</li>
    <li><b>Swimrun</b> : indique distances, nombre de parties nage, <b>Big Run</b> (plus long segment de course) et <b>Big Swim</b> (plus long segment de nage). Piscine, eau libre et enchaînements montent progressivement vers ces distances.</li>
-   <li><b>Périodes bloquées</b> (en bas de Plus › Courses) : vacances, blessure, maladie ou semaine allégée.</li></ul>`)}
+   <li><b>Périodes bloquées</b> (en bas de l'onglet Courses) : vacances, blessure, maladie ou semaine allégée.</li></ul>`)}
   ${sec('apple','4. Mettre une séance sur l\'Apple Watch',`<p><b>Depuis l'appli</b></p><ol>
-   <li>Ouvre la séance → <b>Sur ma montre</b> → <b>Apple Watch</b>, puis enregistre le fichier .zip dans <b>Fichiers</b>.</li>
+   <li>Ouvre la séance → <b>Montre</b> → <b>Apple Watch</b>, puis enregistre le fichier .zip dans <b>Fichiers</b>.</li>
    <li>Dans Fichiers, touche le .zip : le fichier <b>.workout</b> apparaît à côté.</li>
    <li>Appui long sur le .workout → <b>Partager</b> → <b>Messages</b>, et envoie-le-toi.</li>
    <li>Dans la conversation, touche le fichier : l'aperçu s'ouvre, ajoute la séance à ta montre. Elle est dans l'appli Exercice, Course en extérieur.</li></ol>
    <p><b>Plus rapide : demande à Claude</b><br>Dans la conversation avec Claude, demande par exemple « les fichiers montre de décembre ». Tu reçois directement les .workout calculés avec tes réglages, sans zip.</p>
    <p class="hint">Sur la montre : allure cible à ± 10 s/km (allure moyenne de la répétition), échauffement et retour au calme ouverts (tu passes à la suite quand tu es prêt), alerte BPM sur les footings et sorties longues.</p>`)}
   ${sec('builder','Créer une séance pour la montre (Plus › Montre)',`<ol>
-   <li>Onglet <b>Montre</b> → choisis un <b>modèle</b> (10 × 400 m, 30/30, seuil, fartlek, pyramide, tempo, côtes, footing) ou une <b>séance vierge</b>. Depuis le Programme, « ✎ Personnaliser » ouvre une séance prévue ici.</li>
+   <li>Onglet <b>Montre</b> → choisis un <b>modèle</b> (10 × 400 m, 30/30, seuil, fartlek, pyramide, tempo, côtes, footing) ou une <b>séance vierge</b>. Depuis une séance prévue, ⋯ → « Éditer pour la montre » l'ouvre ici.</li>
    <li>Règle chaque bloc : répétitions (− / +), effort en durée ou en distance, cible (% VMA, allure, zone FC ou aucune), récupération (durée, distance, libre ou aucune). ⧉ duplique un bloc, ↑ le remonte, ✕ le supprime. « Pause entre séries » ajoute une récupération longue.</li>
    <li><b>Saisie rapide</b> : tape la séance comme sur un programme de club (ex. <code>2x(10x30/30) @100% R3'</code>, <code>6x1000 @90% r2'</code>, <code>échauffement 20' + 3x10' @85% r2' + rac 10'</code>), touche Aperçu, puis Créer. « Comment écrire ? » rappelle la notation.</li>
    <li><b>Séries</b> : le compteur « Séries » répète un bloc avec une récup entre les séries. La montre reçoit les blocs dépliés automatiquement (Apple et Garmin ne gèrent pas les séries imbriquées).</li>
@@ -1603,21 +1604,21 @@ function guideView(){
    <li>Le résumé en bas se met à jour en direct : durée totale, distance d'effort, allures.</li>
    <li><b>Apple Watch</b> / <b>Garmin</b> créent le fichier. <b>Enregistrer</b> la garde dans « Mes séances ». <b>Ajouter</b> la place dans ton programme au jour choisi (elle s'y coche, se déplace et se retire comme les autres).</li></ol>`)}
   ${sec('garmin','5. Mettre une séance sur la Garmin',`<p><b>Une seule fois</b> : crée un compte gratuit sur intervals.icu, puis dans ses réglages connecte Garmin Connect et active l'envoi des séances planifiées (« Upload planned workouts »).</p><ol>
-   <li>Ouvre la séance → <b>Sur ma montre</b> → <b>Garmin</b>, enregistre le .zip dans Fichiers et touche-le pour extraire le <b>.fit</b>.</li>
+   <li>Ouvre la séance → <b>Montre</b> → <b>Garmin</b>, enregistre le .zip dans Fichiers et touche-le pour extraire le <b>.fit</b>.</li>
    <li>Sur intervals.icu (dans le navigateur du téléphone) : importe le .fit dans ta bibliothèque de séances, puis place la séance dans ton calendrier au bon jour.</li>
    <li>Elle part dans Garmin Connect : synchronise ta montre, elle apparaît dans Entraînement → Séances / Agenda.</li></ol>
    <p class="hint">Avec un ordinateur, tu peux aussi copier le .fit dans le dossier GARMIN/NewFiles de la montre branchée en USB.</p>`)}
-  ${sec('pdf','6. Exporter en PDF ou dans le Calendrier',`<ol><li>Programme → <b>Exporter PDF</b>.</li><li>Choisis le mois de départ et 1 à 4 mois.</li><li><b>Générer le PDF</b> : détaillé, avec tes zones à la fin.</li><li><b>📅 Calendrier</b> : fichier .ics (dans un .zip depuis Claude : touche-le dans Fichiers pour l'extraire). Sur iPhone, Fichiers montre le contenu mais ne sait pas l'importer. Trois façons qui marchent :
+  ${sec('pdf','6. Exporter en PDF ou dans le Calendrier',`<ol><li>Programme → ⋯ → <b>Exporter</b> (ou Plus › Exporter).</li><li>Choisis le mois de départ et 1 à 4 mois.</li><li><b>Générer le PDF</b> : détaillé, avec tes zones à la fin.</li><li><b>📅 Calendrier</b> : fichier .ics (dans un .zip depuis Claude : touche-le dans Fichiers pour l'extraire). Sur iPhone, Fichiers montre le contenu mais ne sait pas l'importer. Trois façons qui marchent :
      <br>① <b>Mail d'Apple</b> : dans la version GitHub (Safari), le bouton ouvre directement le partage de l'iPhone → choisis Mail et envoie-toi le message. Depuis Claude, partage le fichier vers Mail (ou extrais le zip dans Fichiers puis Partager → Mail). Dans l'app Mail, touche la pièce jointe → « Tout ajouter ».
      <br>② <b>Glisser-déposer</b> : dans Fichiers, garde le doigt sur le .ics, et sans lâcher, ouvre l'app Calendrier avec l'autre main, puis dépose le fichier dans Calendrier.
      <br>③ <b>Sur Mac</b> : double-clic sur le .ics (ou Calendrier → Fichier → Importer) ; la synchro iCloud l'envoie sur l'iPhone.
      <br>Chaque séance devient un événement sur la journée, avec le détail en note. Si tu réexportes, supprime d'abord les anciens événements pour éviter les doublons.</li></ol>`)}
   ${sec('save','7. Sauvegarde et synchro',`<ul>
    <li>Tout s'enregistre automatiquement sur ton compte et se synchronise entre téléphone et ordinateur. L'heure du dernier enregistrement est en haut à droite.</li>
-   <li><b>Plus › Profil → Sauvegarde</b> : télécharge un fichier de sauvegarde de temps en temps (après avoir ajouté une course, par exemple). <b>Restaurer un fichier</b> remet tout comme au moment de la sauvegarde.</li>
+   <li><b>Plus › Profil › Réglages avancés › Sauvegarde</b> : télécharge un fichier de sauvegarde de temps en temps (après avoir ajouté une course, par exemple). <b>Restaurer un fichier</b> remet tout comme au moment de la sauvegarde.</li>
    <li>Les fichiers montre sont figés au moment où tu les crées : recrée-les si tu changes ta VMA ou ta FC.</li>
    <li><b>Version autonome (copie .html hors Claude)</b> : les données vivent dans le navigateur et disparaissent si tu vides l'historique. Un bandeau orange signale les modifications non sauvegardées, et le navigateur te prévient si tu fermes la page avant d'avoir sauvegardé.</li>
-   <li><b>« Enregistrer l'appli + mes données »</b> (Plus › Profil → Sauvegarde) crée un nouveau fichier .html qui contient tout. Ouvre ce fichier : tu retrouves tout, même après un nettoyage. Si le navigateur contient d'autres données, l'appli te demande laquelle garder en montrant les dates.</li>
+   <li><b>« Enregistrer l'appli + mes données »</b> (Plus › Profil › Réglages avancés › Sauvegarde) crée un nouveau fichier .html qui contient tout. Ouvre ce fichier : tu retrouves tout, même après un nettoyage. Si le navigateur contient d'autres données, l'appli te demande laquelle garder en montrant les dates.</li>
    <li><b>Chrome / Edge sur ordinateur</b> : « Activer l'enregistrement automatique » lie un fichier .json que l'appli met à jour à chaque modification. Après un nettoyage, « Ouvrir un fichier lié » recharge tout. À chaque réouverture, un bandeau « Reprendre » peut demander ton accord pour réécrire dans le fichier.</li>
    <li><b>iPhone</b> : le fichier .html ne s'ouvre pas tel quel depuis Fichiers. Sur la version mise en ligne, utilise « Restaurer un fichier » avec ta sauvegarde .html ou .json.</li></ul>`)}
   ${sec('team','8. Plusieurs sportifs',`<ul>
@@ -1631,7 +1632,10 @@ function guideView(){
    <li><b>VMA</b> : vitesse maximale aérobie, l'allure tenue environ 6' à fond. Base de toutes les allures.</li>
    <li><b>EF</b> (endurance fondamentale) : footing facile, en aisance respiratoire, piloté en BPM.</li>
    <li><b>Seuil</b> : allure soutenue mais contrôlée (85 % VMA), tenable environ 1h en course.</li>
-   <li><b>VMA courte / longue</b> : fractions de 30" à 1' à 100 % VMA / de 2' à 5' à 90–95 %.</li>
+   <li><b>Fractionné court (VMA courte)</b> : fractions de 30" à 1' autour de 100 % de ta VMA.</li>
+   <li><b>Fractionné long (VMA longue)</b> : fractions de 2' à 5' à 90–95 % de ta VMA.</li>
+   <li><b>Rythme soutenu</b> : séance au seuil, fractions de 2' à 10' autour de 85 % de ta VMA.</li>
+   <li><b>Phases</b> : Foncier (construire la base), Développement (gagner en vitesse), Spécifique (préparer la course), Affûtage (arriver frais), Semaine allégée (récupérer).</li>
    <li><b>Allure spécifique</b> : l'allure prévue le jour de la course.</li>
    <li><b>CSS</b> : allure seuil en natation, par 100 m.</li>
    <li><b>FC de réserve (Karvonen)</b> : FC max − FC repos, sert à calculer tes BPM cibles.</li>
@@ -1699,7 +1703,7 @@ async function exportICS(start,nMonths){ logUse('agenda');
           const uid=(activeAth().id+'-'+dk+'-'+s.title).replace(/[^\w-]/g,'').slice(0,60)+'@coach';
           const desc=s.sum+(s.dur?' · ~'+fmtMin(s.dur):'')+'\n\n'+s.blocks.map(b=>b.h+' :\n- '+b.l.join('\n- ')).join('\n\n');
           L.push('BEGIN:VEVENT','UID:'+uid,'DTSTAMP:'+stamp,'DTSTART;VALUE=DATE:'+dk.replace(/-/g,''),'DTEND;VALUE=DATE:'+nx,
-            icsFold('SUMMARY:'+icsEsc((EMO[s.cat]||'')+' '+s.title.replace(/🏁\s*/,'')+(who?' ('+who+')':''))),icsFold('DESCRIPTION:'+icsEsc(desc)),'TRANSP:TRANSPARENT','END:VEVENT'); count++; } } } }
+            icsFold('SUMMARY:'+icsEsc((EMO[s.cat]||'')+' '+dispTitle(s).replace(/🏁\s*/,'')+(who?' ('+who+')':''))),icsFold('DESCRIPTION:'+icsEsc(desc)),'TRANSP:TRANSPARENT','END:VEVENT'); count++; } } } }
   L.push('END:VCALENDAR'); const txt=L.join('\r\n')+'\r\n';
   const end=new Date(start.getFullYear(),start.getMonth()+nMonths-1,1), tag=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1);
   const base='Seances-'+(who?who.replace(/[^\wÀ-ÿ-]/g,'')+'-':'')+tag(start)+(nMonths>1?'_'+tag(end):'');
@@ -1726,7 +1730,7 @@ function icsOne(s,dk,hhmm){
   const desc=s.sum+(s.dur?' · ~'+fmtMin(s.dur):'')+'\n\n'+s.blocks.map(b=>b.h+' :\n- '+b.l.join('\n- ')).join('\n\n');
   return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Coach Course Swimrun//FR','CALSCALE:GREGORIAN','METHOD:PUBLISH','BEGIN:VEVENT',
     'UID:'+(activeAth().id+'-'+dk+'-'+s.title).replace(/[^\w-]/g,'').slice(0,60)+'@coach','DTSTAMP:'+stamp,'DTSTART:'+f(st),'DTEND:'+f(en),
-    icsFold('SUMMARY:'+icsEsc((EMO[s.cat]||'')+' '+s.title.replace(/🏁\s*/,'')+(who?' ('+who+')':''))),icsFold('DESCRIPTION:'+icsEsc(desc)),'END:VEVENT','END:VCALENDAR'].join('\r\n')+'\r\n'; }
+    icsFold('SUMMARY:'+icsEsc((EMO[s.cat]||'')+' '+dispTitle(s).replace(/🏁\s*/,'')+(who?' ('+who+')':''))),icsFold('DESCRIPTION:'+icsEsc(desc)),'END:VEVENT','END:VCALENDAR'].join('\r\n')+'\r\n'; }
 function calDefault(dk){ const w=wd(parseD(dk)), k='coach-caltime-'+(w>=5?'we':'wk'); try{ return localStorage.getItem(k)||(w>=5?'09:00':'18:30'); }catch(e){ return w>=5?'09:00':'18:30'; } }
 async function addOneToCalendar(key){ const s=SESS[key], dk=SESSDK[key]; if(!s) return; logUse('agenda'); const el=document.getElementById('caltime'), t=(el&&el.value)||calDefault(dk);
   try{ localStorage.setItem('coach-caltime-'+(wd(parseD(dk))>=5?'we':'wk'),t); }catch(e){}
@@ -1753,7 +1757,7 @@ async function exportPDF(start,nMonths){ logUse('pdf');
       body.push([{content:pdfTxt('Semaine du '+ws.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+'  ·  '+c.phase+'  ·  fractionné '+c.mode+(P.mixWeek?' + '+(c.mode==='piste'?'route':'piste'):'')+(c.target?'  ·  '+c.target.name+' J-'+Math.round((parseD(c.target.date)-ws)/864e5):'')),colSpan:3,styles:{fillColor:[238,234,226],fontStyle:'bold',textColor:[22,24,29]}}]);
       for(let i=0;i<7;i++){ const d=addDays(ws,i); if(d.getMonth()!==m.getMonth()) continue; const ss=W.days[i], lab=DSHORT[i]+' '+d.getDate();
         if(!ss.length){ body.push([lab,{content:'Repos',styles:{textColor:[140,140,140]}},'']); continue; }
-        ss.forEach((s,j)=>body.push([j?'':lab,{content:pdfTxt(s.title+'\n'+s.sum+(s.dur?' · ~'+fmtMin(s.dur):'')),styles:{fontStyle:'bold',textColor:COL[s.cat]||COL.run}},pdfTxt(s.blocks.map(b=>b.h+' : '+b.l.join(' / ')).join('\n'))]));
+        ss.forEach((s,j)=>body.push([j?'':lab,{content:pdfTxt(dispTitle(s)+'\n'+techOf(s)+s.sum+(s.dur?' · ~'+fmtMin(s.dur):'')),styles:{fontStyle:'bold',textColor:COL[s.cat]||COL.run}},pdfTxt(s.blocks.map(b=>b.h+' : '+b.l.join(' / ')).join('\n'))]));
       }
     }
     doc.autoTable({startY:30,head:[['Jour','Séance','Détail'].map(pdfTxt)],body,theme:'grid',
@@ -1870,14 +1874,20 @@ function schemaHTML(s,big){ const sg=segsOf(s); if(!sg||!sg.length) return '';
   const H={w:28,r:12,i0:42,i1:56,i2:70,i3:85,i4:100}, col=s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':'run';
   return `<div class="schema rel ${big?'big':''}" aria-hidden="true" style="--sc:var(--${col});gap:${sg.length>40?1:2}px">${sg.map(x=>`<i class="${x.c[0]==='i'?'wk':''}" style="flex-grow:${Math.max(1,Math.round(x.d))};height:${H[x.c]||50}%"></i>`).join('')}</div>`; }
 /* titre en clair : « VMA 85 % · 3 × 5' » → « Fractionné : 3 × 5' » (le titre technique reste en petit) */
+function structOf(s){ if(!s||!s.blocks) return null; const B=s.blocks.find(b=>/^Corps|^Séance de |^Test/.test(b.h)); if(!B) return null;
+  if(/pyramide/i.test(s.title)) return 'Pyramide';
+  const L=String(B.l[0]||'').replace(/<[^>]+>/g,'').replace(/^Version allégée : /,''); let m=L.match(/^(?:(\d+) séries? de : )?(\d+) × ([\d,]+ ?(?:km|m|'\d*|")?)/);
+  if(m){ let u=m[3].trim(); const d=L.match(/≈ ([\d ]+) m\b/); if(/'\d\d/.test(u)&&d) u=d[1].trim()+' m'; return (m[1]&&m[1]!=='1'?m[1]+' × ':'')+m[2]+' × '+u; }
+  m=L.match(/^(\d+['"])/); return m?m[1]:null; }
+/* titre en clair : « VMA 85 % · 3 × 5' » → « Fractionné : 3 × 5' » (le titre technique reste en petit) */
 function plainTitle(s){ if(!s||s.cat!=='run'||!s.title) return null; const T=s.title, i=T.indexOf(' · '); if(i<0) return null;
-  const head=T.slice(0,i), rest=T.slice(i+3); let name=null, m;
+  const head=T.slice(0,i); let rest=T.slice(i+3), name=null, m; const st=structOf(s);
   if(/^VMA courte/.test(head)) name='Fractionné court';
   else if(/^VMA longue/.test(head)) name='Fractionné long';
   else if(m=head.match(/^VMA (\d+)/)) name=+m[1]>=95?'Fractionné court':'Fractionné';
   else if(/^Seuil/.test(head)) name='Rythme soutenu';
-  else if(/^Allure spécifique/.test(head)) return {t:'Allure de course : '+rest.replace(/^allure /,''),tech:head};
-  if(!name) return null; return {t:name+' : '+rest,tech:head}; }
+  else if(/^Allure spécifique/.test(head)) return {t:'Allure de course : '+rest.replace(/^allure /,''),tech:head,st};
+  if(!name) return null; if(!/×/.test(rest)&&st&&/×/.test(st)) rest=st+(/^\d/.test(rest)?'':' · '+rest); return {t:name+' : '+rest,tech:head,st}; }
 const dispTitle=s=>{ const p=plainTitle(s); return p?p.t:s.title; };
 const techOf=s=>{ const p=plainTitle(s); return p?p.tech+' · ':''; };
 function subOf(s){ if(stepsOf(s)){ const kf=Object.fromEntries(keyFigures(s)); return esc(techOf(s))+(kf.Allure?esc(kf.Allure)+' · ':'')+(s.dur?'≈ '+fmtMin(s.dur):''); } return esc(techOf(s))+rich(s.sum); }
@@ -1885,29 +1895,34 @@ function subOf(s){ if(stepsOf(s)){ const kf=Object.fromEntries(keyFigures(s)); r
 function stepsOf(s){ if(!s||s.cat!=='run'||!s.wk||!s.wk.warm||!s.blocks) return null;
   const B=s.blocks.filter(b=>b.l&&b.l.length), w=B.find(b=>/^Échauffement/.test(b.h)), c=B.find(b=>/^Retour au calme/.test(b.h)); if(!w||!c) return null;
   const mins=b=>{ const m=String(b.l[0]).match(/^(\d+)'/); return m?m[1]+"'":''; };
-  const kf=Object.fromEntries(keyFigures(s)), mx=maxIntens(s), p=plainTitle(s), rest=p?p.t.slice(p.t.indexOf(' : ')+3):'';
-  const big=/^\d/.test(rest)?rest:'Corps', main=B.find(b=>b!==w&&b!==c&&!/^Texte du plan/.test(b.h));
+  const kf=Object.fromEntries(keyFigures(s)), mx=maxIntens(s), st=structOf(s), sw=s.type==='Spécifique swimrun', spe=/^Allure spécifique/.test(s.title)||sw;
+  const big=st||'Corps', main=B.find(b=>b!==w&&b!==c&&!/^Texte du plan/.test(b.h));
   const hill=s.qk==='COTES'||/^Côtes/.test(s.title);
   let txt, sub='';
-  if(hill||!kf.Allure){ txt=main?String(main.l[0]).replace(/<[^>]+>/g,'').slice(0,140):''; }
-  else { txt=(mx==='x4'||mx==='x3'||mx==='x2'?'Rapide':mx==='x1'?'Soutenu':'Allure')+' à <b>'+esc(kf.Allure)+'</b>'; if(kf.Récup) sub=esc(kf.Récup)+' de récup entre chaque'; }
+  if(hill||!kf.Allure){ txt=main?String(main.l[0]).replace(/<[^>]+>/g,'').replace(/^\d+ × \S+ /,'').replace(/^\d+['"] /,'').slice(0,140):''; txt=txt.charAt(0).toUpperCase()+txt.slice(1); }
+  else { txt=(spe?'À ton allure de course : ':mx==='x4'||mx==='x3'?'Rapide à ':mx==='x2'?'Soutenu à ':'À ')+'<b>'+esc(kf.Allure)+'</b>'; if(kf.Récup) sub=esc(kf.Récup)+' de récup '+(sw?'(marche ou trot) ':'')+'entre chaque'; }
   return [{d:mins(w)||"20'",t:'Footing tranquille',s:'Tu peux parler sans souci'},{d:big,t:txt,s:sub,hot:true,raw:hill||!kf.Allure},{d:mins(c)||"10'",t:'Très lent pour finir',s:''}]; }
 function stepsHTML(s){ const st=stepsOf(s); if(!st) return '';
   return `<ol class="steps">${st.map(x=>`<li><b class="d ${x.hot?'hot':''}">${esc(x.d)}</b><span>${x.raw?esc(x.t):x.t}${x.s?`<small>${x.s}</small>`:''}</span></li>`).join('')}</ol>`; }
-function whyText(s,ws){ const t=s.title||'', ty=s.type||''; let w;
-  if(s.cat==='renfo') w='Il renforce muscles et tendons : tu cours mieux et tu te blesses moins.';
-  else if(s.cat==='swim') w='Elle travaille ta technique et ton endurance en nage.';
-  else if(s.cat==='race') w='C\'est le jour J : profite !';
-  else if(/^Test VMA/.test(t)) w='Il mesure ta VMA pour recaler toutes tes allures.';
-  else if(/^Côtes/.test(t)) w='Elle renforce les jambes et la foulée, et prépare les montées.';
-  else if(/^Allure spécifique/.test(t)) w='Tu mémorises l\'allure de ta course pour la tenir le jour J sans y penser.';
-  else if(/^Seuil/.test(t)||ty==='Seuil') w='Elle repousse le moment où tu te mets dans le rouge : utile du 10 km au trail.';
-  else if(/^VMA courte/.test(t)||/^VMA (9[5-9]|1\d\d)/.test(t)) w='Elle développe ta vitesse maximale (VMA) : toutes tes allures en profitent.';
-  else if(/^VMA/.test(t)) w='Elle t\'apprend à tenir une allure rapide plus longtemps.';
-  else if(/^Sortie longue/.test(t)||ty==='Sortie longue') w='Elle habitue ton corps à durer : c\'est la base de toute préparation.';
-  else w='Il construit ton endurance et aide à récupérer des séances dures.';
-  let g=null; try{ g=EN.weekCtx(ws).target; }catch(e){}
-  return w+(g&&s.cat!=='race'?' Objectif : '+esc(g.name)+'.':''); }
+function whyText(s,ws){ const t=s.title||'', ty=s.type||''; let c=null; try{ c=EN.weekCtx(ws); }catch(e){}
+  const runGoal=c&&c.target?c.target:null, swimGoal=c&&c.swimT?c.swimT:null; let w, goal=null;
+  if(s.cat==='renfo'){ w=/haut du corps/.test(t)?'Il prépare épaules et dos à la nage du swimrun.':/prévention/.test(t)?'Il protège chevilles et genoux, très sollicités quand on débute.':/pliométrie/.test(t)?'Il rend ta foulée plus puissante et plus économique.':/nature/.test(t)?'Il prépare les jambes aux montées et surtout aux descentes.':/Mobilité/.test(t)?'Elle aide à récupérer et garde tes articulations souples.':'Il stabilise le bassin et le tronc : une foulée plus efficace et moins de blessures.'; goal=/haut du corps/.test(t)?swimGoal:null; }
+  else if(s.cat==='swim'){ if(swimGoal){ w=ty==='Eau libre'?(/enchaînements/.test(t)?'Tu répètes les passages nage → course comme le jour du swimrun.':'Elle t\'habitue à nager en eau libre : orientation, visée, combinaison.'):ty==='Enchaînement'?'Tu t\'habitues à courir juste après avoir nagé, comme en swimrun.':'Elle prépare les parties nage de ton swimrun.'; goal=swimGoal; }
+    else w='Elle entretient ton endurance sans chocs et complète la course à pied.'; }
+  else if(s.cat==='race') return 'C\'est le jour J : profite !';
+  else { goal=runGoal;
+    if(/^Test VMA/.test(t)) w='Il mesure ta VMA pour recaler toutes tes allures.';
+    else if(/^Rappel de vitesse/.test(t)) w='Une petite dose de vitesse pour garder des jambes vives avant la course, sans te fatiguer.';
+    else if(ty==='Spécifique swimrun') w='Tu répètes ton allure de course sur la distance de ton plus long segment de course (Big Run).';
+    else if(/^Côtes/.test(t)) w='Elle renforce les jambes et la foulée, et prépare les montées.';
+    else if(/^Allure spécifique/.test(t)) w='Tu mémorises l\'allure de ta course pour la tenir le jour J sans y penser.';
+    else if(/^Seuil/.test(t)||ty==='Seuil') w='Elle repousse le moment où tu te mets dans le rouge : utile du 10 km au trail.';
+    else if(/^VMA courte/.test(t)||/^VMA (9[5-9]|1\d\d)/.test(t)) w='Elle développe ta vitesse maximale (VMA) : toutes tes allures en profitent.';
+    else if(/^VMA/.test(t)) w='Elle t\'apprend à tenir une allure rapide plus longtemps.';
+    else if(/^Sortie longue/.test(t)||ty==='Sortie longue') w='Elle habitue ton corps à durer : c\'est la base de toute préparation.';
+    else if(c&&c.phase==='Assimilation') w='Un footing souple : la semaine est allégée pour que ton corps assimile le travail.';
+    else w='Il construit ton endurance et aide à récupérer des séances dures.'; }
+  return w+(goal?' Objectif : '+esc(goal.name)+'.':''); }
 const LEGEND=`<div class="legend"><span><i class="sg-w"></i>Échauf./calme</span><span><i class="sg-i0"></i>EF</span><span><i class="sg-i1"></i>Tempo</span><span><i class="sg-i2"></i>Seuil</span><span><i class="sg-i3"></i>VMA longue</span><span><i class="sg-i4"></i>VMA</span><span><i class="sg-r"></i>Récup</span></div>`;
 function maxIntens(s){ if(s.cat==='race') return 'krc'; if(s.cat==='swim') return 'ksw'; if(s.cat==='renfo') return 'krf'; const sg=segsOf(s); if(!sg) return 'x0'; let m=0; sg.forEach(x=>{ if(x.c[0]==='i') m=Math.max(m,+x.c[1]); }); return 'x'+m; }
 function keyFigures(s){ const k=[]; if(s.dur) k.push(['Durée','≈ '+fmtMin(s.dur)]);
@@ -1965,14 +1980,14 @@ function todayView(){
   { const x=dayExtras(ws,dk,i,W); if(x) h+=`<div class="sessions" style="margin:-4px 0 12px">${x}</div>`; }
   if(ss.length){ const d=addDays(now,1), W2=EN.buildWeek(mondayOf(d)), s2=W2.days[wd(d)].filter(s=>s.cat!=='off');
     h+=`<div class="sectitle">Demain</div>${s2.length?`<div class="sessions">${s2.map(s=>sessRow(mondayOf(d),ymd(d),s)).join('')}</div>`:'<div class="card small mut">Repos</div>'}`; }
-  h+=`<div class="sectitle">Cette semaine</div><div class="card" data-tab="plan" style="cursor:pointer"><div class="wsum">${ribbonHTML(ws,W)}${gaugeHTML(ws,W)}</div><div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip ph-${c.phase.split(' ')[0]}">${c.phase}</span><span class="chip">Fractionné ${c.mode}</span><span class="small mut" style="margin-left:auto">Programme ›</span></div></div>`;
+  h+=`<div class="sectitle">Cette semaine</div><div class="card" data-tab="plan" style="cursor:pointer"><div class="wsum">${ribbonHTML(ws,W)}${gaugeHTML(ws,W)}</div><div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip ph-${c.phase.split(' ')[0]}">${PHASEL[c.phase]||c.phase}</span><span class="small mut" style="margin-left:auto">Programme ›</span></div></div>`;
   if(MULTI()&&ROOT.settings.coachView){ h+=`<div class="sectitle">Tous les sportifs</div><div class="card" style="padding:6px 12px">`;
     for(const p of editables()){ const E2=p.id===ROOT.active?EN:engineFor(p.id,true), W2=E2.buildWeek(ws), s2=W2.days[i].filter(s=>s.cat!=='off'), off2=W2.days[i].some(s=>s.cat==='off');
       const dn=s2.length&&s2.every(s=>p.data.done[s.key]);
-      h+=`<button class="coachrow" data-swtoday="${p.id}"><span class="adot sm" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0;text-align:left"><b>${esc(p.name)}${p.id===ROOT.active?' <span class="chip">Actif</span>':''}</b><span>${s2.length?s2.map(s=>esc(s.title)).join(' + '):off2?'Pause':'Repos'}</span></div>${s2.length?`<span class="chk ${dn?'on':''}" aria-hidden="true">${dn?'✓':''}</span>`:''}</button>`; }
+      h+=`<button class="coachrow" data-swtoday="${p.id}"><span class="adot sm" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0;text-align:left"><b>${esc(p.name)}${p.id===ROOT.active?' <span class="chip">Actif</span>':''}</b><span>${s2.length?s2.map(s=>esc(dispTitle(s))).join(' + '):off2?'Pause':'Repos'}</span></div>${s2.length?`<span class="chk ${dn?'on':''}" aria-hidden="true">${dn?'✓':''}</span>`:''}</button>`; }
     h+=`</div>`; }
   h+=`<div class="sectitle">Objectif</div><div class="ctx"><button class="vma" data-tab="prof"><b>${fmtPaceSec(3600/S.profile.vma)}</b><small>allure VMA /km<br>${v1(S.profile.vma)} km/h</small></button>
-    <div class="small">${g?`<b>${esc(g.name)}</b> <span class="chip">${g.prio}</span><br><span class="mut">${parseD(g.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} · dans ${Math.max(0,Math.round((parseD(g.date)-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5))} jours</span>`:'<span class="mut">Aucune course au calendrier. Ajoute-en dans Plus › Courses.</span>'}</div></div>`;
+    <div class="small">${g?`<b>${esc(g.name)}</b> <span class="chip">${g.prio}</span><br><span class="mut">${parseD(g.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} · dans ${Math.max(0,Math.round((parseD(g.date)-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5))} jours</span>`:'<span class="mut">Aucune course au calendrier. Ajoute-en dans l’onglet Courses.</span>'}</div></div>`;
   return h; }
 
 /* ---- vue Plus ---- */
@@ -1993,7 +2008,7 @@ function drawFiche(){ const s=SESS[ficheKey]; if(!s){ closeModal(); return; } co
     <div class="tag ${s.cat}" style="color:var(--${s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':s.cat==='race'?'race':s.cat==='off'?'mut':'run'})">${esc(TAGOF(s))}${s.swapped?' · ↻ '+(s.swapped.auto?'préférence':'changée'):''}</div>
     <h2 class="cond" style="font-size:30px;margin:2px 0 0;text-transform:uppercase;line-height:1.05">${esc(dispTitle(s))}</h2><div class="small mut" style="margin-top:2px">${subOf(s)}${stepsOf(s)&&/Sur |Côte/.test(s.sum)?' · '+rich(s.sum):''}</div>
     ${s.cat!=='race'&&s.cat!=='off'?`<details class="fd why"><summary>Pourquoi cette séance ?</summary><div class="in">${whyText(s,ws)}</div></details>`:''}
-    ${schemaHTML(s,true)}${stepsOf(s)?`<div class="schlab"><span>Échauffement</span><span>${esc((plainTitle(s)||{t:''}).t.split(' : ')[1]||'Corps de séance')}</span><span>Calme</span></div>`:''}
+    ${schemaHTML(s,true)}${stepsOf(s)?`<div class="schlab"><span>Échauffement</span><span>${esc(structOf(s)||'Corps de séance')}</span><span>Calme</span></div>`:''}
     ${stepsOf(s)?'':`<div class="kpis">${keyFigures(s).map(([l,v])=>`<div class="kpi"><small>${l}</small><b>${esc(v)}</b></div>`).join('')}</div>`}
     ${s.ghost?ghostActs(s,dk):s.cat==='off'?'':actsHTML(s)}${done&&s.cat!=='race'&&s.cat!=='off'&&!s.ghost?feelHTML(s):''}
     ${stepsHTML(s)}
@@ -2368,14 +2383,14 @@ function groupView(){ CLUBR=[];
   if(GFILT==='part'&&!PT.size) h+=`<p class="hint" style="margin:0 0 10px">Personne d'autre n'est inscrit sur tes courses pour l'instant.</p>`;
   // aujourd'hui
   let rows=''; for(const p of members){ const L=todayOf(p); if(!L.length) continue; const all=L.filter(s=>s.cat!=='race'), dn=all.length&&all.every(s=>p.data.done[s.key]);
-    rows+=`<div class="gline">${dot(p)}<span class="nm">${esc(p.name)}</span><span class="tx">${L.map(s=>esc(s.title)).join(' + ')}</span>${dn?'<b style="color:var(--ev-att)">✓</b>':''}${L.some(s=>s.club)?'<span title="Séance club">👥</span>':''}</div>`; }
+    rows+=`<div class="gline">${dot(p)}<span class="nm">${esc(p.name)}</span><span class="tx">${L.map(s=>esc(dispTitle(s))).join(' + ')}</span>${dn?'<b style="color:var(--ev-att)">✓</b>':''}${L.some(s=>s.club)?'<span title="Séance club">👥</span>':''}</div>`; }
   h+=`<div class="sectitle" style="margin-top:4px">Aujourd'hui</div><div class="card" style="padding:4px 12px;margin-bottom:6px">${rows||'<p class="small mut">Pas de séance prévue aujourd\'hui.</p>'}</div>`;
   // semaine
   h+=`<div class="sectitle">Cette semaine</div><div class="card" style="padding:4px 12px">`;
   for(const p of members){ let ph='', W=null; try{ ph=eng(p.id).weekCtx(ws).phase; W=eng(p.id).buildWeek(ws); }catch(e){}
     let nd=0, nt=0; const lines=[]; if(W) for(let i=0;i<7;i++){ const L=W.days[i].filter(s=>s.cat!=='off'); if(!L.length) continue;
-      lines.push(`<div class="wkl${i===ti?' tdy':''}"><span>${DSHORT[i]}</span><div>${L.map(s=>{ const d=!!p.data.done[s.key]; if(s.cat!=='race'){ nt++; if(d) nd++; } return `<div>${d?'<b class="ok">✓</b> ':''}${esc(s.title)}${s.real?' <span class="mut">('+esc(realDesc(s.real))+')</span>':''}${s.club?' 👥':''}</div>`; }).join('')}</div></div>`); }
-    h+=`<details class="gmem"><summary class="gline">${dot(p)}<span class="nm">${esc(p.name)}${p.id===me?' <span class="chip">Moi</span>':''}</span><span class="tx">${esc(ph)}</span><span class="chip">${nd}/${nt}</span></summary><div class="wk">${lines.join('')||'<p class="small mut">Pas de séance cette semaine.</p>'}</div></details>`; }
+      lines.push(`<div class="wkl${i===ti?' tdy':''}"><span>${DSHORT[i]}</span><div>${L.map(s=>{ const d=!!p.data.done[s.key]; if(s.cat!=='race'){ nt++; if(d) nd++; } return `<div>${d?'<b class="ok">✓</b> ':''}${esc(dispTitle(s))}${s.real?' <span class="mut">('+esc(realDesc(s.real))+')</span>':''}${s.club?' 👥':''}</div>`; }).join('')}</div></div>`); }
+    h+=`<details class="gmem"><summary class="gline">${dot(p)}<span class="nm">${esc(p.name)}${p.id===me?' <span class="chip">Moi</span>':''}</span><span class="tx">${esc(PHASEL[ph]||ph)}</span><span class="chip">${nd}/${nt}</span></summary><div class="wk">${lines.join('')||'<p class="small mut">Pas de séance cette semaine.</p>'}</div></details>`; }
   h+='</div>';
   // courses
   const items=[]; for(const p of ROOT.profiles) for(const r of p.data.races) if(r.date&&r.date>=TODAY) items.push({r,p});
@@ -2446,7 +2461,7 @@ function adminView(){
   <div class="row" style="flex-wrap:wrap"><button class="btn sm" data-gact="export">Télécharger la sauvegarde du club</button><label class="btn ghost sm" style="display:inline-block">Importer / restaurer<input type="file" id="gimpfile" accept=".json,.html,application/json,text/html" hidden></label>${lsHad()?'<button class="btn ghost sm" data-gact="implocal">Importer les profils de cet appareil</button>':''}</div>
   <div id="gimpbox"></div>
   <p class="hint">Le fichier contient tous les sportifs, leurs programmes et leurs liens. Une restauration remplace les sportifs de même prénom et ajoute les autres. Rappel ici chaque mois.</p></div>
-  <div class="card sec"><h3>Règles du club</h3><p class="small" style="margin:0">Chacun voit les courses et objectifs de tous (Plus › Groupe) mais ne modifie que son profil et ses courses. Toi, tu peux tout modifier. L'historique de plus de 2 mois s'efface automatiquement. Les membres voient aussi la semaine de chacun et les séances faites ; les FC, ressentis et commentaires restent visibles seulement par le sportif et toi.</p></div>
+  <div class="card sec"><h3>Règles du club</h3><p class="small" style="margin:0">Chacun voit les courses et objectifs de tous (onglet Groupe) mais ne modifie que son profil et ses courses. Toi, tu peux tout modifier. L'historique de plus de 2 mois s'efface automatiquement. Les membres voient aussi la semaine de chacun et les séances faites ; les FC, ressentis et commentaires restent visibles seulement par le sportif et toi.</p></div>
   <div class="row" style="margin-top:6px"><span class="small mut" style="flex:1">Connecté : ${esc(G.email||'administrateur')}</span><button class="btn ghost sm" data-gact="logout">Se déconnecter</button></div>`;
   return h;
 }
@@ -2722,7 +2737,7 @@ function needsOnboard(){ return !!(G.on&&!ADM()&&S&&!GATE&&!S.profile.onboarded&
 function wzStart(){ const P=S.profile; WZ={step:0,mode:'race',pace:fmtPaceSec(3600/P.vma),dist:'10',time:'',lvl:P.level||'confirme',age:P.age||'',sex:P.sex||'',fcmax:P.fcmax||'',fcrepos:P.fcrepos||'',
   avail:JSON.parse(JSON.stringify(P.avail)),lrDay:P.lrDay,wmax:+P.weekdayMax||0,race:{name:'',date:'',type:'route',km:'',goal:''}}; modalKind='wiz'; wzDraw(); $('#modal').classList.add('show'); }
 function wzVma(){ if(WZ.mode==='pace'){ const s=parseHMS(WZ.pace); return s&&s>150&&s<600?3600/s:null; }
-  if(WZ.mode==='race'){ const t=parseHMS(WZ.time), km=+WZ.dist; if(!t||!km) return null; let lo=8, hi=26; for(let i=0;i<40;i++){ const mid=(lo+hi)/2; if(EN.predict({type:'route',km},mid)>t) lo=mid; else hi=mid; } return Math.round((lo+hi)/2*10)/10; }
+  if(WZ.mode==='race'){ const t=parseHMS(WZ.time), km=+WZ.dist; if(!t||!km) return null; const E=makeEngine(Object.assign({},S,{profile:Object.assign({},S.profile,{level:WZ.lvl})}),{}); let lo=8, hi=26; for(let i=0;i<40;i++){ const mid=(lo+hi)/2; if(E.predict({type:'route',km},mid)>t) lo=mid; else hi=mid; } return Math.round((lo+hi)/2*10)/10; }
   return {debutant:11.5,confirme:13.5,expert:16}[WZ.lvl]; }
 function wzDraw(){ const W=WZ, st=W.step, name=activeAth().name; let b='';
   const dots=`<div class="row" style="gap:6px;margin:4px 0 12px">${[0,1,2,3].map(i=>`<span style="flex:1;height:4px;border-radius:2px;background:${i<=st?'var(--run)':'var(--line)'}"></span>`).join('')}</div>`;
@@ -2732,12 +2747,12 @@ function wzDraw(){ const W=WZ, st=W.step, name=activeAth().name; let b='';
     ${W.mode==='race'?`<label class="f">Distance</label><div class="pills">${[['5','5 km'],['10','10 km'],['21.1','Semi'],['42.195','Marathon']].map(([k,l])=>`<button class="${W.dist===k?'on':''}" data-wzd="${k}">${l}</button>`).join('')}</div>
       <label class="f">Ton temps (ex. 48:30 ou 1:52:00)</label><input class="inp" data-wz="time" value="${esc(W.time)}" placeholder="mm:ss ou h:mm:ss"><p class="hint">Une course ou une sortie à fond de moins de 6 mois, sur route plate.</p>`:''}
     ${W.mode==='pace'?`<label class="f">Allure VMA (min/km, ex. 4:27)</label><input class="inp" data-wz="pace" value="${esc(W.pace)}"><p class="hint">L'allure que tu tiens environ 6 minutes à fond.</p>`:''}
-    ${W.mode==='none'?`<label class="f">Ton niveau</label><div class="pills">${[['debutant','Débutant'],['confirme','Régulier'],['expert','Confirmé / compétiteur']].map(([k,l])=>`<button class="${W.lvl===k?'on':''}" data-wzl="${k}">${l}</button>`).join('')}</div><p class="hint">Valeur de départ : fais un test VMA dès que possible (il est proposé dans le programme).</p>`:''}
-    <div class="ev att" id="wzres" style="margin-top:12px">${v?`<b>VMA estimée : ${fmtPaceSec(3600/v)}/km · ${v1(v)} km/h</b>Tu pourras l'ajuster dans Profil.`:'<b>Renseigne ton chrono pour estimer ta VMA</b>'}</div>`; }
+    ${W.mode==='none'?`<label class="f">Ton niveau</label><div class="pills">${[['debutant','Débutant'],['confirme','Confirmé'],['expert','Expert']].map(([k,l])=>`<button class="${W.lvl===k?'on':''}" data-wzl="${k}">${l}</button>`).join('')}</div><p class="hint">Valeur de départ : fais un test VMA dès que possible (il est proposé dans le programme).</p>`:''}
+    <div class="ev att" id="wzres" style="margin-top:12px">${v?`<b>VMA estimée : ${fmtPaceSec(3600/v)}/km · ${v1(v)} km/h</b>Tu pourras l'ajuster dans Profil › Ma VMA.`:'<b>Renseigne ton chrono pour estimer ta VMA</b>'}</div>`; }
   if(st===1) b=`<h3>Toi</h3><p class="small">Étape 2 : pour le cardio et le volume d'entraînement.</p>
     <div class="grid2"><div><label class="f">Âge</label><input class="inp" inputmode="numeric" data-wz="age" value="${esc(W.age)}"></div><div><label class="f">Sexe</label><div class="seg"><button class="${W.sex==='F'?'on':''}" data-wzs="F">Femme</button><button class="${W.sex==='M'?'on':''}" data-wzs="M">Homme</button></div></div></div>
     <div class="grid2"><div><label class="f">FC max (si connue)</label><input class="inp" inputmode="numeric" data-wz="fcmax" value="${esc(W.fcmax)}"></div><div><label class="f">FC repos (si connue)</label><input class="inp" inputmode="numeric" data-wz="fcrepos" value="${esc(W.fcrepos)}"></div></div>
-    <label class="f">Niveau</label><div class="pills">${[['debutant','Débutant'],['confirme','Confirmé'],['expert','Expert']].map(([k,l])=>`<button class="${W.lvl===k?'on':''}" data-wzl="${k}">${l}</button>`).join('')}</div>`;
+    <label class="f">Niveau</label><div class="pills">${[['debutant','Débutant'],['confirme','Confirmé'],['expert','Expert']].map(([k,l])=>`<button class="${W.lvl===k?'on':''}" data-wzl="${k}">${l}</button>`).join('')}</div><p class="hint"><b>Débutant</b> : tu cours depuis moins de 2 ans ou 3 fois par semaine au plus. <b>Confirmé</b> : tu cours régulièrement depuis plusieurs saisons. <b>Expert</b> : 5 sorties ou plus par semaine et des compétitions régulières.</p>`;
   if(st===2){ const av=k=>DSHORT.map((d,i)=>`<button class="${k} ${W.avail[k].includes(i)?'on':''}" data-wza="${k}:${i}">${W.avail[k].includes(i)?'✓':''}</button>`).join('');
     b=`<h3>Tes disponibilités</h3><p class="small">Étape 3 : les jours où tu peux t'entraîner.</p>
     <div class="avail"><span></span>${DSHORT.map(d=>`<span class="h">${d[0]}</span>`).join('')}<span>Course</span>${av('run')}<span>Natation</span>${av('swim')}<span>Renfo</span>${av('renfo')}</div>
@@ -2767,12 +2782,12 @@ document.addEventListener('click',e=>{ if(modalKind!=='wiz'||!WZ) return; let t;
     if(d>0&&W.step===3){ wzFinish(); return; } W.step=Math.max(0,W.step+d); wzDraw(); $('#sheet').scrollTop=0; }
   else return;
   e.stopPropagation(); },true);
-document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const t=e.target; if(t.dataset.wz){ WZ[t.dataset.wz]=t.value; if(WZ.step===0){ const v=wzVma(), r=$('#wzres'); if(r) r.innerHTML=v?`<b>VMA estimée : ${fmtPaceSec(3600/v)}/km · ${v1(v)} km/h</b>Tu pourras l'ajuster dans Profil.`:'<b>Renseigne ton chrono pour estimer ta VMA</b>'; } }
+document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const t=e.target; if(t.dataset.wz){ WZ[t.dataset.wz]=t.value; if(WZ.step===0){ const v=wzVma(), r=$('#wzres'); if(r) r.innerHTML=v?`<b>VMA estimée : ${fmtPaceSec(3600/v)}/km · ${v1(v)} km/h</b>Tu pourras l'ajuster dans Profil › Ma VMA.`:'<b>Renseigne ton chrono pour estimer ta VMA</b>'; } }
   if(t.dataset.wzr) WZ.race[t.dataset.wzr]=t.value; });
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261119200229';
+const BUILD='20261119201214';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

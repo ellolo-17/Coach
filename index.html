@@ -620,7 +620,7 @@ function makeEngine(S,H){ H=H||{};
       blocks:[{h:'Échauffement',l:[WARM(wc[0])]},{h:'Corps de séance',l:[t,'Allure cible : '+pace(v),'Objectif : mémoriser la sensation de l\'allure de course']},{h:'Retour au calme',l:[COOL(wc[1])]}]};
   }
   function vmaTest(c){ return {cat:'run',type:'Test VMA',title:'Test VMA (demi-Cooper)',sum:"6' à fond",dur:45,q:true,wk:{warm:true,blocks:[{iter:1,steps:[{p:'work',g:['time',360]}]}]},
-    blocks:[{h:'Échauffement',l:[WARM()]},{h:'Test',l:["6' le plus vite possible, allure régulière, sur piste idéalement",'Note la distance parcourue en mètres : l\'appli en déduit ton allure VMA','Saisis le résultat dans Profil › Ma VMA › « J\'ai fait un test » : toutes tes allures se recalculent']},{h:'Retour au calme',l:[COOL()]}]}; }
+    blocks:[{h:'Échauffement',l:[WARM()]},{h:'Test',l:["6' le plus vite possible, allure régulière, sur piste idéalement",'Note la distance parcourue en mètres : l\'appli en déduit ton allure VMA',(V3?'Saisis le résultat dans Profil › Ma VMA › « J\'ai fait un test » : toutes tes allures se recalculent':'Saisis le résultat dans Profil → Test VMA : toutes tes allures se recalculent')]},{h:'Retour au calme',l:[COOL()]}]}; }
 
   /* ----- natation ----- */
   function swimPool(c,idx,ph,force){
@@ -2787,7 +2787,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261119201214';
+const BUILD='20261119201224';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

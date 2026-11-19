@@ -245,6 +245,7 @@ body.gated nav.tabs,body.gated #who{display:none}
 .acts.a3n .pfait.on{background:var(--ok);border-color:var(--ok)}
 .acts.a3n button .ic{font-size:17px}
 .fd.why{margin-top:12px}
+.actpanels>details:not([open]){display:none}
 .actlist{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:16px;overflow:hidden}
 .actlist .alh{padding:12px 14px 6px;font-size:13px;font-weight:600;color:var(--mut)}
 .actlist>.fd{border:0;border-top:1px solid var(--line);border-radius:0;margin:0}
@@ -1879,6 +1880,7 @@ function plainTitle(s){ if(!s||s.cat!=='run'||!s.title) return null; const T=s.t
   if(!name) return null; return {t:name+' : '+rest,tech:head}; }
 const dispTitle=s=>{ const p=plainTitle(s); return p?p.t:s.title; };
 const techOf=s=>{ const p=plainTitle(s); return p?p.tech+' · ':''; };
+function subOf(s){ if(stepsOf(s)){ const kf=Object.fromEntries(keyFigures(s)); return esc(techOf(s))+(kf.Allure?esc(kf.Allure)+' · ':'')+(s.dur?'≈ '+fmtMin(s.dur):''); } return esc(techOf(s))+rich(s.sum); }
 /* déroulé simple en 3 étapes (séances avec échauffement et retour au calme) */
 function stepsOf(s){ if(!s||s.cat!=='run'||!s.wk||!s.wk.warm||!s.blocks) return null;
   const B=s.blocks.filter(b=>b.l&&b.l.length), w=B.find(b=>/^Échauffement/.test(b.h)), c=B.find(b=>/^Retour au calme/.test(b.h)); if(!w||!c) return null;
@@ -1919,7 +1921,7 @@ function toggleDone(k){ if(S.done[k]) delete S.done[k]; else S.done[k]=1; save()
 /* ---- ligne compacte (programme) ---- */
 function sessRow(ws,dk,s){ reg(ws,dk,s); const key=s.key, done=!!S.done[key], fe=(S.feel||{})[key]||{};
   return `<div class="swipe"><div class="swbg"><span>✓ Fait</span><span>${s.alts?'↻ Changer':'Détail'}</span></div>
-  <div class="srow ${s.cat} ${done?'done':''}" data-fiche="${esc(key)}"><div class="t"><div class="tag">${esc(TAGOF(s))}${fe.r?' · '+fe.r+'/5':''}${s.swapped?' · ↻':''}${s.moved?' · déplacée':''}</div><b>${esc(dispTitle(s))}</b><span>${esc(techOf(s))}${rich(s.sum)}${s.dur?' · ≈ '+fmtMin(s.dur):''}</span>${clubChip(s)}</div>
+  <div class="srow ${s.cat} ${done?'done':''}" data-fiche="${esc(key)}"><div class="t"><div class="tag">${esc(TAGOF(s))}${fe.r?' · '+fe.r+'/5':''}${s.swapped?' · ↻':''}${s.moved?' · déplacée':''}</div><b>${esc(dispTitle(s))}</b><span>${stepsOf(s)?subOf(s):esc(techOf(s))+rich(s.sum)+(s.dur?' · ≈ '+fmtMin(s.dur):'')}</span>${clubChip(s)}</div>
   ${s.cat==='off'?'':`<button class="chk ${done?'on':''}" data-done="${esc(key)}" aria-label="${done?'Marquer à faire':'Marquer comme faite'}">${done?'✓':''}</button>`}</div></div>`; }
 
 /* ---- actions principales ---- */
@@ -1931,7 +1933,7 @@ function actsHTML(s){ const key=esc(s.key), done=!!S.done[s.key];
 
 /* ---- carte héros (Aujourd'hui) ---- */
 function heroHTML(ws,dk,s,kick){ reg(ws,dk,s); const fe=(S.feel||{})[s.key]||{};
-  return `<div class="hero"><div data-fiche="${esc(s.key)}" style="cursor:pointer"><div class="kick" style="color:var(--${s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':s.cat==='race'?'race':'run'})">${esc(kick||TAGOF(s))}</div><h2 class="cond">${esc(dispTitle(s))}</h2><div class="small mut" style="margin-top:2px">${esc(techOf(s))}${rich(s.sum)}</div>${clubChip(s)}
+  return `<div class="hero"><div data-fiche="${esc(s.key)}" style="cursor:pointer"><div class="kick" style="color:var(--${s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':s.cat==='race'?'race':'run'})">${esc(kick||TAGOF(s))}</div><h2 class="cond">${esc(dispTitle(s))}</h2><div class="small mut" style="margin-top:2px">${subOf(s)}</div>${clubChip(s)}
     ${schemaHTML(s,true)}</div>${stepsOf(s)?stepsHTML(s):`<div class="kpis">${keyFigures(s).map(([l,v])=>`<div class="kpi"><small>${l}</small><b>${esc(v)}</b></div>`).join('')}</div>`}
     ${s.cat==='off'?'':actsHTML(s)}${S.done[s.key]&&s.cat!=='race'&&s.cat!=='off'?feelHTML(s):''}
     <div style="margin-top:10px"><button class="linkbtn small" data-fiche="${esc(s.key)}">Voir le descriptif complet ›</button></div></div>`; }
@@ -1989,7 +1991,7 @@ function drawFiche(){ const s=SESS[ficheKey]; if(!s){ closeModal(); return; } co
   const d=parseD(dk), done=!!S.done[key];
   let h=`<div class="fback"><button data-close="1">‹ Retour</button><span class="small mut">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>
     <div class="tag ${s.cat}" style="color:var(--${s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':s.cat==='race'?'race':s.cat==='off'?'mut':'run'})">${esc(TAGOF(s))}${s.swapped?' · ↻ '+(s.swapped.auto?'préférence':'changée'):''}</div>
-    <h2 class="cond" style="font-size:30px;margin:2px 0 0;text-transform:uppercase;line-height:1.05">${esc(dispTitle(s))}</h2><div class="small mut" style="margin-top:2px">${esc(techOf(s))}${rich(s.sum)}</div>
+    <h2 class="cond" style="font-size:30px;margin:2px 0 0;text-transform:uppercase;line-height:1.05">${esc(dispTitle(s))}</h2><div class="small mut" style="margin-top:2px">${subOf(s)}${stepsOf(s)&&/Sur |Côte/.test(s.sum)?' · '+rich(s.sum):''}</div>
     ${s.cat!=='race'&&s.cat!=='off'?`<details class="fd why"><summary>Pourquoi cette séance ?</summary><div class="in">${whyText(s,ws)}</div></details>`:''}
     ${schemaHTML(s,true)}${stepsOf(s)?`<div class="schlab"><span>Échauffement</span><span>${esc((plainTitle(s)||{t:''}).t.split(' : ')[1]||'Corps de séance')}</span><span>Calme</span></div>`:''}
     ${stepsOf(s)?'':`<div class="kpis">${keyFigures(s).map(([l,v])=>`<div class="kpi"><small>${l}</small><b>${esc(v)}</b></div>`).join('')}</div>`}
@@ -1997,15 +1999,13 @@ function drawFiche(){ const s=SESS[ficheKey]; if(!s){ closeModal(); return; } co
     ${stepsHTML(s)}
     <details class="fd" ${stepsOf(s)?'':'open'}><summary>${stepsOf(s)?'Détails pour les connaisseurs':'Détail complet de la séance'}</summary><div class="in">${s.blocks.map(b=>`<h4>${esc(b.h)}</h4><ul>${b.l.map(x=>`<li${/^Repère/.test(x)?' class="ref"':''}>${rich(x)}</li>`).join('')}</ul>`).join('')}</div></details>`;
   if(s.ghost){ $('#sheet').innerHTML=h; return; }
-  h+=`<div class="actlist"><div class="alh">Autres actions</div>`;
+  h+=`<div class="actpanels">`;
   if(s.cat!=='race'&&s.cat!=='off') h+=`<details class="fd" id="movebox"><summary><span class="ai">⇄</span>Changer de jour${s.moved?' (déplacée)':''}</summary><div class="in"><div class="dchips">${DSHORT.map((dd,j)=>{ const x=addDays(ws,j), t=ymd(x); return `<button class="dchip ${t===dk?'on':''}" data-mv="${j}" data-key="${ek}" data-ws="${ymd(ws)}">${dd} ${x.getDate()}</button>`; }).join('')}</div><p class="hint">Dans la même semaine. Re-choisis le jour d'origine pour annuler.</p></div></details>`;
   if(s.cat!=='off') h+=`<details class="fd" id="calbox"><summary><span class="ai">📅</span>Ajouter à mon agenda</summary><div class="in"><div class="row" style="flex-wrap:wrap"><span class="small">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} à</span><input type="time" id="caltime" class="inp" style="width:120px" value="${calDefault(dk)}"><button class="btn sm" data-cal="${ek}">Ajouter</button></div>
     <p class="hint">${STANDALONE?'Le partage de l\'iPhone s\'ouvre : choisis <b>Mail</b> et envoie-toi le message. Dans l\'app Mail, touche la pièce jointe → « Ajouter au calendrier ».':'Le fichier .ics s\'ouvre dans le partage : choisis <b>Mail</b> et envoie-le-toi, puis touche la pièce jointe dans l\'app Mail → « Ajouter au calendrier ». (Si l\'appli te donne un .zip, ouvre-le dans Fichiers puis partage le .ics par Mail.)'} Durée : ${fmtMin(Math.max(15,s.dur||60))}.</p></div></details>`;
   if(s.cat!=='race'&&s.cat!=='off') h+=editHTML(s);
-  if(s.alts) h+=`<button class="arow" data-chg="${ek}"><span class="ai">↻</span>Remplacer par une autre séance<span class="chev">›</span></button>`;
   h+=`</div>`+planAltHTML(s);
   if(s.custom) h+=`<div style="margin-top:12px"><button class="btn ghost sm" data-uncust="${s.cid}">Retirer du programme</button></div>`;
-  if(s.cat!=='race'&&s.cat!=='off') h+=`<div style="margin-top:12px"><button class="btn ghost sm danger" data-hide="${ek}">Supprimer cette séance</button></div>`;
   if(!done&&s.cat!=='race'&&s.cat!=='off') h+=`<p class="hint">Astuce : dans le Programme, balaye une séance vers la droite pour la marquer faite, vers la gauche pour la changer.</p>`;
   $('#sheet').innerHTML=h; }
 
@@ -2772,7 +2772,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261119194307';
+const BUILD='20261119200229';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2873,8 +2873,8 @@ function actMenuHTML(s){ const k=esc(s.key), it=[];
   if(s.cat!=='race'&&s.cat!=='off') it.push(['✎','Modifier la séance',`data-mact="edit" data-key="${k}"`]);
   if(s.alts) it.push(['↻','Changer de séance',`data-chg="${k}"`]);
   if(s.wk&&s.cat==='run') it.push(['⌚','Éditer pour la montre',`data-tow="${k}"`]);
-  if(s.cat!=='race'&&s.cat!=='off') it.push(['⇄','Déplacer',`data-mact="move" data-key="${k}"`]);
-  if(s.cat!=='off') it.push(['📅','Ajouter au calendrier',`data-mact="cal" data-key="${k}"`]);
+  if(s.cat!=='race'&&s.cat!=='off') it.push(['⇄','Changer de jour',`data-mact="move" data-key="${k}"`]);
+  if(s.cat!=='off') it.push(['📅','Ajouter à mon agenda',`data-mact="cal" data-key="${k}"`]);
   if(s.cat!=='race'&&s.cat!=='off') it.push(['🗑','Supprimer la séance',`data-hide="${k}" class="danger"`]);
   return it.map(([i,l,a])=>`<button ${a}><span>${i}</span>${l}</button>`).join(''); }
 document.addEventListener('click',e=>{ let t;

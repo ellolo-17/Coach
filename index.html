@@ -227,6 +227,43 @@ body.gated nav.tabs,body.gated #who{display:none}
 .toast{display:none;align-items:center;gap:12px}.tundo{background:none;border:0;color:var(--run);font-weight:700;font-size:14px;padding:0 2px;cursor:pointer}
 #main.compact .srow .schema,#main.compact .srow .t>span,#main.compact .clubchip,#main.compact .ghostrow>.t>span{display:none}#main.compact .srow{padding:5px 8px}#main.compact .day{padding:4px 0}#main.compact .srow .chk{width:30px;height:30px}#main.compact .ghostrow{margin-top:3px}
 @media(max-width:600px){.sync[data-short]::after{content:attr(data-short);font-size:12px;font-weight:600}.sync.cloud[data-short]::after{color:var(--ok)}.sync.off[data-short]::after{color:var(--ev-irr)}.sync[data-short] i{display:none}}
+
+/* --- ergonomie v3 (19/11) --- */
+.schema.rel{align-items:flex-end;height:26px;border-radius:0;overflow:visible;border-bottom:1px solid var(--line);margin-top:10px}
+.schema.rel.big{height:46px;margin-top:14px}
+.schema.rel i{background:var(--ir);border-radius:3px 3px 0 0}
+.schema.rel i.wk{background:var(--sc,var(--run))}
+.schlab{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);margin-top:4px}
+.steps{list-style:none;margin:12px 0 0;padding:0}
+.steps li{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px;line-height:1.35}
+.steps li b.d{font-family:"Barlow Condensed",Inter,sans-serif;font-size:21px;line-height:1.05}
+.steps li b.d.hot{color:var(--run)}
+.steps li small{display:block;color:var(--mut);font-size:12.5px}
+.acts.a3n{grid-template-columns:1.6fr 1fr 52px;gap:8px}
+.acts.a3n button{flex-direction:row;justify-content:center;gap:8px;min-height:50px;font-size:15px}
+.acts.a3n .pfait{background:var(--run);border-color:var(--run);color:#fff}
+.acts.a3n .pfait.on{background:var(--ok);border-color:var(--ok)}
+.acts.a3n button .ic{font-size:17px}
+.fd.why{margin-top:12px}
+.actlist{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:16px;overflow:hidden}
+.actlist .alh{padding:12px 14px 6px;font-size:13px;font-weight:600;color:var(--mut)}
+.actlist>.fd{border:0;border-top:1px solid var(--line);border-radius:0;margin:0}
+.actlist>.fd summary{justify-content:flex-start;align-items:center}
+.actlist>.fd summary::after{content:'›';color:var(--mut);font-size:18px;line-height:1;margin-left:auto;padding-left:8px}
+.actlist>.fd[open] summary::after{content:'⌄'}
+.actlist .ai{display:inline-block;width:26px;color:var(--mut)}
+.actlist .arow{width:100%;display:flex;align-items:center;gap:0;border:0;border-top:1px solid var(--line);background:none;padding:12px 14px;font-weight:600;text-align:left;color:var(--ink)}
+.actlist .arow .chev{margin-left:auto;color:var(--mut);font-size:18px}
+details.ghostd{margin:6px 0 2px}
+details.ghostd>summary{list-style:none;cursor:pointer;font-size:13px;color:var(--mut);text-decoration:underline;text-underline-offset:3px;padding:6px 2px;min-height:32px}
+details.ghostd>summary::-webkit-details-marker{display:none}
+details.ghostd[open]>summary{text-decoration:none}
+.pgoal{align-items:center;gap:8px;margin:2px 0 10px}
+.dsopts{display:flex;flex-direction:column;gap:8px}
+.dsopts button{text-align:left;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:12px 14px;min-height:52px;color:var(--ink)}
+.dsopts button b{display:block;font-size:15px}.dsopts button small{display:block;color:var(--mut);font-size:12.5px;margin-top:2px}
+.actmenu[hidden]{display:none!important}
+.seg.mini button{padding:6px 10px;font-size:12.5px}
 </style>
 </head>
 <body>
@@ -1155,18 +1192,19 @@ function planView(){
   const g=nextGoal(); const thisW=EN.weekCtx(mondayOf(new Date())); const fat=fatigue();
   let h=`<div class="monthbar"><button class="iconbtn" data-m="-1" aria-label="Mois précédent">‹</button><h2>${MONTHS[cur.getMonth()]} ${cur.getFullYear()}</h2><button class="iconbtn" data-m="1" aria-label="Mois suivant">›</button></div>`;
   if(fat&&thisW.phase!=='Assimilation') h+=`<div class="alert"><b>Ça tire un peu.</b> Tes dernières séances ont été notées dures (moyenne ${v1(fat.avg)}/5). Une semaine allégée t'aidera à assimiler.<div style="margin-top:8px"><button class="btn sm" data-allege="1">Alléger cette semaine</button></div></div>`;
-  h+=`<div class="ctx"><button class="vma" data-tab="prof"><b>${fmtPaceSec(3600/S.profile.vma)}</b><small>allure VMA /km<br>${v1(S.profile.vma)} km/h</small></button>
-  <div><div class="small">${g?`Prochain objectif : <b>${esc(g.name)}</b> <span class="chip">${g.prio}</span><br><span class="mut">${parseD(g.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} · dans ${Math.max(0,weeksBetween(mondayOf(new Date()),mondayOf(parseD(g.date))))} sem.</span>`:'<span class="mut">Aucune course au calendrier : cycle foncier. Ajoute tes courses pour une préparation ciblée.</span>'}</div>
-  <div style="margin-top:6px" class="row"><span class="chip ph-${thisW.phase.split(' ')[0]}">Cette semaine : ${thisW.phase}</span><button class="btn sm" data-planmenu="1" aria-label="Plus d'actions">⋯</button></div></div></div>`+planBarHTML();
+  h+=`<div class="row pgoal"><div class="small" style="flex:1;min-width:0">${g?`Objectif : <b>${esc(g.name)}</b> <span class="chip">${g.prio}</span> <span class="mut">dans ${Math.max(0,weeksBetween(mondayOf(new Date()),mondayOf(parseD(g.date))))} sem.</span>`:'<span class="mut">Aucune course au calendrier : cycle foncier.</span>'}</div><button class="btn sm" data-planmenu="1" aria-label="Plan importé, semaines précédentes, export">⋯</button></div>`;
   const thisMon=mondayOf(new Date()), isCurMonth=cur.getFullYear()===new Date().getFullYear()&&cur.getMonth()===new Date().getMonth();
   const allW=monthWeeks(cur), hidden=isCurMonth&&!showPastWeeks?allW.filter(ws=>ws<thisMon).length:0;
-  if(hidden) h+=`<button class="btn ghost sm" data-showpast="1" style="width:100%;margin-top:4px">↑ Voir ${hidden>1?'les '+hidden+' semaines précédentes':'la semaine précédente'} du mois</button>`;
+  PASTHIDDEN=hidden;
   for(const ws of allW.slice(hidden)){
     const W=EN.buildWeek(ws), c=W.ctx; let tot=0; for(let i=0;i<7;i++) W.days[i].forEach(s=>{ if(s.cat!=='race') tot+=s.dur||0; });
     const mixed=S.profile.mixWeek?' + '+(c.mode==='piste'?'route':'piste'):'';
-    h+=`<section class="week"><div class="weekhead"><h3>Sem. du ${ws.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</h3><span class="chip ph-${c.phase.split(' ')[0]}">${c.phase}</span>${c.target?`<span class="chip">${esc(c.target.name)} J-${Math.round((parseD(c.target.date)-ws)/864e5)}</span>`:''}${W.frozen?'<span class="chip" title="Semaine passée : programme figé">🔒 Figée</span>':''}<span class="chip">Fractionné ${c.mode}${mixed}</span></div>
+    h+=`<section class="week"><div class="weekhead"><h3>Sem. du ${ws.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</h3><span class="chip ph-${c.phase.split(' ')[0]}">${PHASEL[c.phase]||c.phase}</span>${W.frozen?'<span class="chip" title="Semaine passée : programme figé">🔒 Figée</span>':''}</div>
     <div class="wsum">${ribbonHTML(ws,W)}${gaugeHTML(ws,W)}</div><div class="card" style="padding:4px 12px">`;
+    const empty=i=>!W.days[i].length&&!dayExtras(ws,ymd(addDays(ws,i)),i,W)&&ymd(addDays(ws,i))!==TODAY;
     for(let i=0;i<7;i++){ const d=addDays(ws,i), dk=ymd(d), inM=d.getMonth()===cur.getMonth(), ss=W.days[i];
+      if(empty(i)){ let j=i; while(j<6&&empty(j+1)&&addDays(ws,j+1).getMonth()===d.getMonth()) j++;
+        if(j>i){ const dj=addDays(ws,j); h+=`<div class="day ${inM?'':'out'}" id="d-${dk}"><div class="dlabel">${DSHORT[i]}<b>${d.getDate()}</b></div><div class="sessions"><div class="rest">Repos jusqu'à ${DAYS[j].toLowerCase()} ${dj.getDate()}</div>${[...Array(j-i)].map((_,x)=>`<span id="d-${ymd(addDays(ws,i+x+1))}"></span>`).join('')}</div></div>`; i=j; continue; } }
       h+=`<div class="day ${dk===TODAY?'today':''} ${inM?'':'out'}" id="d-${dk}"><div class="dlabel">${DSHORT[i]}<b>${d.getDate()}</b></div><div class="sessions">${ss.length?ss.map(s=>sessRow(ws,dk,s)).join(''):'<div class="rest">Repos</div>'}${dayExtras(ws,dk,i,W)}</div></div>`; }
     h+='</div></section>';
   }
@@ -1174,7 +1212,15 @@ function planView(){
   return h;
 }
 
-let todayOpened=false, showPastWeeks=false;
+let todayOpened=false, showPastWeeks=false, PASTHIDDEN=0;
+/* fenêtre après « Fait » : comme prévu / différemment / pas faite + ressenti */
+function doneSheet(k){ const s=SESS[k]; if(!s) return; if(modalKind==='fiche') closeModal(); modalKind='done'; const fe=(S.feel||{})[k]||{}, ek=esc(k);
+  $('#sheet').innerHTML=`<h3>Bravo ! Comment s'est passée ta séance ?</h3><div class="small mut" style="margin:-4px 0 12px">${esc(dispTitle(s))}</div>
+  <div class="dsopts"><button data-dsok="1"><b>Faite comme prévu</b></button><button data-dsdiff="${ek}"><b>Faite, mais différemment</b><small>Tu notes la durée et la distance réelles</small></button><button data-dsno="${ek}"><b>Pas faite</b><small>Tu peux la changer de jour</small></button></div>
+  <div class="small" style="margin:16px 0 6px;font-weight:600">C'était…</div><div class="feel">${FEEL.map((f,i)=>`<button class="f${i+1} ${fe.r===i+1?'on':''}" data-dfeel="${i+1}" data-key="${ek}">${f}</button>`).join('')}</div>
+  <button class="btn" data-dsok="1" style="width:100%;margin-top:16px">Enregistrer</button>`;
+  $('#modal').classList.add('show'); }
+const PHASEL={'Foncier':'Foncier : construire la base','Développement':'Développement : gagner en vitesse','Spécifique':'Spécifique : préparer la course','Affûtage':'Affûtage : arriver frais','Semaine de course':'Semaine de course','Assimilation':'Semaine allégée : récupérer','Récupération':'Récupération après la course','Reprise':'Reprise en douceur'};
 
 /* ---------- courses & périodes ---------- */
 const TYPES={route:'Route',nature:'Nature / trail',swimrun:'Swimrun'};
@@ -1269,17 +1315,18 @@ function profView(){
   <div class="card sec"><h3>Sportif</h3>${G.on&&!ADM()?`<p class="small" style="margin:0"><span class="adot" style="background:${A.color};display:inline-flex;width:22px;height:22px;font-size:12px;vertical-align:middle">${esc(A.name.slice(0,1).toUpperCase())}</span> <b>${esc(A.name)}</b> · prénom et couleur gérés par l'administrateur</p>`:`<label class="f">Prénom</label><input class="inp" data-aname="1" value="${esc(A.name)}">
   <label class="f">Couleur</label><div class="row" style="flex-wrap:wrap;gap:8px">${COLORS.map(c=>`<button class="cdot ${A.color===c?'on':''}" style="background:${c}" data-acol="${c}" aria-label="Couleur"></button>`).join('')}</div>`}
   <label class="f">Niveau</label><div class="pills">${[['debutant','Débutant'],['confirme','Confirmé'],['expert','Expert']].map(([k,l])=>`<button class="${(P.level||'confirme')===k?'on':''}" data-lvl="${k}">${l}</button>`).join('')}</div>
-  <p class="hint">${{debutant:'Débutant : 1 séance de qualité par semaine en foncier, répétitions −25 %, sorties longues −20 %, 3 séances max, allègement toutes les 3 semaines.',confirme:'Confirmé : programme standard.',expert:'Expert : répétitions +20 %, sorties longues +10 %, une séance de plus en développement et en spécifique (dans la limite de tes disponibilités).'}[P.level||'confirme']}</p>
-  <div style="margin-top:12px" class="row"><button class="btn ghost sm" id="refreeze">Recalculer les semaines passées</button></div><p class="hint">Les semaines terminées sont figées 🔒 : changer une course ou ta VMA ne modifie que la semaine en cours et la suite. Ce bouton les recalcule avec les réglages actuels (les coches peuvent se perdre).</p>
+  <p class="hint"><b>Débutant</b> : tu cours depuis moins de 2 ans ou 3 fois par semaine au plus. <b>Confirmé</b> : tu cours régulièrement depuis plusieurs saisons. <b>Expert</b> : 5 sorties ou plus par semaine et des compétitions régulières.</p></div>
+  <div class="card sec"><h3>Réglages du sportif</h3>
+  <div style="margin-top:0" class="row"><button class="btn ghost sm" id="refreeze">Recalculer les semaines passées</button></div><p class="hint">Les semaines terminées sont figées 🔒 : changer une course ou ta VMA ne modifie que la semaine en cours et la suite. Ce bouton les recalcule avec les réglages actuels (les coches peuvent se perdre).</p>
   ${MULTI()&&(!G.on||ADM())?'<div style="margin-top:12px"><button class="btn ghost sm danger" id="adel">Supprimer ce sportif</button></div>':''}
   <div style="margin-top:10px"><button class="btn ghost sm" data-wzopen="1">Assistant de démarrage (VMA, jours, course)</button></div>
   <div class="toggle" style="margin-top:10px"><span class="small">Séances club communes : quand d'autres sportifs ont une séance de qualité le même jour, la même séance pour tous (allures et répétitions de chacun)</span><button class="sw ${P.noClub?'':'on'}" data-tog="noClub" aria-label="Séances club"></button></div></div>
   <div class="card sec"><h3>VMA</h3><div class="stepper"><button data-vma="-0.1" aria-label="Moins rapide">−</button><input class="big" data-p="vmakmh" inputmode="decimal" value="${(Math.round(P.vma*10)/10).toFixed(1).replace('.',',')}"><button data-vma="0.1" aria-label="Plus rapide">+</button><span class="mut">km/h<br><small>${fmtPaceSec(3600/P.vma)}/km</small></span></div>
-  <label class="f">Ta VMA vient d'un</label><div class="seg">${[['paliers','Test à paliers (VAMEVAL, Léger)'],['six',"Test de 6' (demi-Cooper)"]].map(([k,l])=>`<button class="${(P.vmaTest==='six'?'six':'paliers')===k?'on':''}" data-vtest="${k}">${l}</button>`).join('')}</div>
-  <p class="hint">Un test à paliers donne une VMA un peu plus haute : l'appli ajuste le % de VMA prévu en course.</p>
-  <label class="f">Test VMA : distance parcourue (m)</label><div class="grid2"><input class="inp" id="t6" inputmode="numeric" placeholder="Demi-Cooper 6'"><input class="inp" id="t12" inputmode="numeric" placeholder="Cooper 12'"></div>
-  <div class="row" style="margin-top:8px"><button class="btn ghost sm" id="tapply">Calculer ma VMA</button></div>
-  <p class="hint">Allure VMA = l'allure que tu tiens environ 6' à fond. Saisis ta distance de test : l'appli calcule l'allure. Ton programme de novembre correspond à une allure VMA d'environ 4'27/km (8 × 100 m en 26"). + / − : 0,1 km/h.</p></div>
+  <div class="row small" style="margin-top:10px;gap:8px;flex-wrap:wrap"><span class="mut">Mesurée par</span><div class="seg mini">${[['paliers','test à paliers'],['six',"test de 6'"]].map(([k,l])=>`<button class="${(P.vmaTest==='six'?'six':'paliers')===k?'on':''}" data-vtest="${k}">${l}</button>`).join('')}</div></div>
+  <details class="fd" style="margin-top:12px"><summary>J'ai fait un test</summary><div class="in">
+  <label class="f" style="margin-top:0">Distance parcourue (m)</label><div class="grid2"><input class="inp" id="t6" inputmode="numeric" placeholder="Demi-Cooper 6'"><input class="inp" id="t12" inputmode="numeric" placeholder="Cooper 12'"></div>
+  <div class="row" style="margin-top:8px"><button class="btn sm" id="tapply">Calculer ma VMA</button></div>
+  <p class="hint">VMA = l'allure que tu tiens environ 6' à fond. Un test à paliers (VAMEVAL, Léger) donne une VMA un peu plus haute : l'appli en tient compte dans les prévisions de course.</p></div></details></div>
 
   <div class="card sec"><h3>Cardio</h3><div class="grid2"><div><label class="f">FC max (bpm)</label><input class="inp" inputmode="numeric" data-p="fcmax" value="${esc(P.fcmax||'')}" placeholder="Estimée : ${est}"></div>
   <div><label class="f">FC repos (bpm)</label><input class="inp" inputmode="numeric" data-p="fcrepos" value="${esc(P.fcrepos||'')}" placeholder="60 par défaut"></div></div>
@@ -1347,8 +1394,13 @@ document.addEventListener('click',async e=>{
   if(e.target.id==='modal'||(e.target.closest('[data-close]')&&!e.target.closest('[data-tab]'))){ closeModal(); return; }
   // programme
   if(t=e.target.closest('[data-m]')){ cur=new Date(cur.getFullYear(),cur.getMonth()+(+t.dataset.m),1); showPastWeeks=false; render(); return; }
-  if(e.target.closest('[data-showpast]')){ showPastWeeks=true; render(); return; }
-  if(t=e.target.closest('[data-done]')){ const k=t.dataset.done; if(S.done[k]) delete S.done[k]; else { S.done[k]=1; open.add(k); } save(); render(); return; }
+  if(e.target.closest('[data-showpast]')){ showPastWeeks=true; if(modalKind) closeModal(); render(); return; }
+  if(t=e.target.closest('[data-dfeel]')){ const k=t.dataset.key; S.feel[k]=Object.assign({},S.feel[k],{r:+t.dataset.dfeel}); save(); t.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===t)); return; }
+  if(e.target.closest('[data-dsok]')){ closeModal(); render(); toast('Séance faite ✓'); return; }
+  if(t=e.target.closest('[data-dsdiff]')){ const k=t.dataset.dsdiff; closeModal(); openFiche(k); setTimeout(()=>{ const d=document.getElementById('editbox'); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'start'}); } },80); return; }
+  if(t=e.target.closest('[data-dsno]')){ const k=t.dataset.dsno; delete S.done[k]; save(); closeModal(); render(); openFiche(k); toast('Séance remise à faire'); setTimeout(()=>{ const d=document.getElementById('movebox'); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'start'}); } },80); return; }
+  if(t=e.target.closest('[data-done]')){ const k=t.dataset.done; if(S.done[k]) delete S.done[k]; else { S.done[k]=1; open.add(k);
+      if(t.classList.contains('pfait')){ save(); render(); const s=SESS[k]; if(s&&s.cat!=='race'&&s.cat!=='off') doneSheet(k); return; } } save(); render(); return; }
   if(t=e.target.closest('[data-mv]')){ const key=t.dataset.key, orig=key.split('|')[0], target=ymd(addDays(parseD(t.dataset.ws),+t.dataset.mv));
     const prevMv=S.moves[key]; if(target===orig) delete S.moves[key]; else S.moves[key]=target; save(); render(); toast(target===orig?'Séance remise à sa place':'Séance déplacée au '+parseD(target).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric'}),()=>{ if(prevMv) S.moves[key]=prevMv; else delete S.moves[key]; save(); render(); }); return; }
   if(t=e.target.closest('[data-feel]')){ const k=t.dataset.key; S.feel[k]=Object.assign({},S.feel[k],{r:+t.dataset.feel}); save(); render(); return; }
@@ -1814,7 +1866,46 @@ function segsOf(s){ const wk=s.wk; if(!wk) return null; const out=[];
   if(out.length>100){ const m=[]; for(const x of out){ const l=m[m.length-1]; if(l&&l.c===x.c) l.d+=x.d; else m.push(Object.assign({},x)); } return m; }
   return out; }
 function schemaHTML(s,big){ const sg=segsOf(s); if(!sg||!sg.length) return '';
-  return `<div class="schema ${big?'big':''}" aria-hidden="true">${sg.map(x=>`<i class="sg-${x.c}" style="flex-grow:${Math.max(1,Math.round(x.d))}"></i>`).join('')}</div>`; }
+  const H={w:28,r:12,i0:42,i1:56,i2:70,i3:85,i4:100}, col=s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':'run';
+  return `<div class="schema rel ${big?'big':''}" aria-hidden="true" style="--sc:var(--${col});gap:${sg.length>40?1:2}px">${sg.map(x=>`<i class="${x.c[0]==='i'?'wk':''}" style="flex-grow:${Math.max(1,Math.round(x.d))};height:${H[x.c]||50}%"></i>`).join('')}</div>`; }
+/* titre en clair : « VMA 85 % · 3 × 5' » → « Fractionné : 3 × 5' » (le titre technique reste en petit) */
+function plainTitle(s){ if(!s||s.cat!=='run'||!s.title) return null; const T=s.title, i=T.indexOf(' · '); if(i<0) return null;
+  const head=T.slice(0,i), rest=T.slice(i+3); let name=null, m;
+  if(/^VMA courte/.test(head)) name='Fractionné court';
+  else if(/^VMA longue/.test(head)) name='Fractionné long';
+  else if(m=head.match(/^VMA (\d+)/)) name=+m[1]>=95?'Fractionné court':'Fractionné';
+  else if(/^Seuil/.test(head)) name='Rythme soutenu';
+  else if(/^Allure spécifique/.test(head)) return {t:'Allure de course : '+rest.replace(/^allure /,''),tech:head};
+  if(!name) return null; return {t:name+' : '+rest,tech:head}; }
+const dispTitle=s=>{ const p=plainTitle(s); return p?p.t:s.title; };
+const techOf=s=>{ const p=plainTitle(s); return p?p.tech+' · ':''; };
+/* déroulé simple en 3 étapes (séances avec échauffement et retour au calme) */
+function stepsOf(s){ if(!s||s.cat!=='run'||!s.wk||!s.wk.warm||!s.blocks) return null;
+  const B=s.blocks.filter(b=>b.l&&b.l.length), w=B.find(b=>/^Échauffement/.test(b.h)), c=B.find(b=>/^Retour au calme/.test(b.h)); if(!w||!c) return null;
+  const mins=b=>{ const m=String(b.l[0]).match(/^(\d+)'/); return m?m[1]+"'":''; };
+  const kf=Object.fromEntries(keyFigures(s)), mx=maxIntens(s), p=plainTitle(s), rest=p?p.t.slice(p.t.indexOf(' : ')+3):'';
+  const big=/^\d/.test(rest)?rest:'Corps', main=B.find(b=>b!==w&&b!==c&&!/^Texte du plan/.test(b.h));
+  const hill=s.qk==='COTES'||/^Côtes/.test(s.title);
+  let txt, sub='';
+  if(hill||!kf.Allure){ txt=main?String(main.l[0]).replace(/<[^>]+>/g,'').slice(0,140):''; }
+  else { txt=(mx==='x4'||mx==='x3'||mx==='x2'?'Rapide':mx==='x1'?'Soutenu':'Allure')+' à <b>'+esc(kf.Allure)+'</b>'; if(kf.Récup) sub=esc(kf.Récup)+' de récup entre chaque'; }
+  return [{d:mins(w)||"20'",t:'Footing tranquille',s:'Tu peux parler sans souci'},{d:big,t:txt,s:sub,hot:true,raw:hill||!kf.Allure},{d:mins(c)||"10'",t:'Très lent pour finir',s:''}]; }
+function stepsHTML(s){ const st=stepsOf(s); if(!st) return '';
+  return `<ol class="steps">${st.map(x=>`<li><b class="d ${x.hot?'hot':''}">${esc(x.d)}</b><span>${x.raw?esc(x.t):x.t}${x.s?`<small>${x.s}</small>`:''}</span></li>`).join('')}</ol>`; }
+function whyText(s,ws){ const t=s.title||'', ty=s.type||''; let w;
+  if(s.cat==='renfo') w='Il renforce muscles et tendons : tu cours mieux et tu te blesses moins.';
+  else if(s.cat==='swim') w='Elle travaille ta technique et ton endurance en nage.';
+  else if(s.cat==='race') w='C\'est le jour J : profite !';
+  else if(/^Test VMA/.test(t)) w='Il mesure ta VMA pour recaler toutes tes allures.';
+  else if(/^Côtes/.test(t)) w='Elle renforce les jambes et la foulée, et prépare les montées.';
+  else if(/^Allure spécifique/.test(t)) w='Tu mémorises l\'allure de ta course pour la tenir le jour J sans y penser.';
+  else if(/^Seuil/.test(t)||ty==='Seuil') w='Elle repousse le moment où tu te mets dans le rouge : utile du 10 km au trail.';
+  else if(/^VMA courte/.test(t)||/^VMA (9[5-9]|1\d\d)/.test(t)) w='Elle développe ta vitesse maximale (VMA) : toutes tes allures en profitent.';
+  else if(/^VMA/.test(t)) w='Elle t\'apprend à tenir une allure rapide plus longtemps.';
+  else if(/^Sortie longue/.test(t)||ty==='Sortie longue') w='Elle habitue ton corps à durer : c\'est la base de toute préparation.';
+  else w='Il construit ton endurance et aide à récupérer des séances dures.';
+  let g=null; try{ g=EN.weekCtx(ws).target; }catch(e){}
+  return w+(g&&s.cat!=='race'?' Objectif : '+esc(g.name)+'.':''); }
 const LEGEND=`<div class="legend"><span><i class="sg-w"></i>Échauf./calme</span><span><i class="sg-i0"></i>EF</span><span><i class="sg-i1"></i>Tempo</span><span><i class="sg-i2"></i>Seuil</span><span><i class="sg-i3"></i>VMA longue</span><span><i class="sg-i4"></i>VMA</span><span><i class="sg-r"></i>Récup</span></div>`;
 function maxIntens(s){ if(s.cat==='race') return 'krc'; if(s.cat==='swim') return 'ksw'; if(s.cat==='renfo') return 'krf'; const sg=segsOf(s); if(!sg) return 'x0'; let m=0; sg.forEach(x=>{ if(x.c[0]==='i') m=Math.max(m,+x.c[1]); }); return 'x'+m; }
 function keyFigures(s){ const k=[]; if(s.dur) k.push(['Durée','≈ '+fmtMin(s.dur)]);
@@ -1828,20 +1919,20 @@ function toggleDone(k){ if(S.done[k]) delete S.done[k]; else S.done[k]=1; save()
 /* ---- ligne compacte (programme) ---- */
 function sessRow(ws,dk,s){ reg(ws,dk,s); const key=s.key, done=!!S.done[key], fe=(S.feel||{})[key]||{};
   return `<div class="swipe"><div class="swbg"><span>✓ Fait</span><span>${s.alts?'↻ Changer':'Détail'}</span></div>
-  <div class="srow ${s.cat} ${done?'done':''}" data-fiche="${esc(key)}"><div class="t"><div class="tag">${esc(TAGOF(s))}${fe.r?' · '+fe.r+'/5':''}${s.swapped?' · ↻':''}${s.moved?' · déplacée':''}</div><b>${esc(s.title)}</b><span>${rich(s.sum)}${s.dur?' · ≈ '+fmtMin(s.dur):''}</span>${clubChip(s)}${schemaHTML(s)}</div>
+  <div class="srow ${s.cat} ${done?'done':''}" data-fiche="${esc(key)}"><div class="t"><div class="tag">${esc(TAGOF(s))}${fe.r?' · '+fe.r+'/5':''}${s.swapped?' · ↻':''}${s.moved?' · déplacée':''}</div><b>${esc(dispTitle(s))}</b><span>${esc(techOf(s))}${rich(s.sum)}${s.dur?' · ≈ '+fmtMin(s.dur):''}</span>${clubChip(s)}</div>
   ${s.cat==='off'?'':`<button class="chk ${done?'on':''}" data-done="${esc(key)}" aria-label="${done?'Marquer à faire':'Marquer comme faite'}">${done?'✓':''}</button>`}</div></div>`; }
 
 /* ---- actions principales ---- */
 function actsHTML(s){ const key=esc(s.key), done=!!S.done[s.key];
   const canReal=s.cat!=='race'&&s.cat!=='off';
-  return `<div class="acts a4"><button class="${done?'on':''}" data-done="${key}"><span class="ic">✓</span>${done?'Faite':'Fait'}</button>
-    ${s.wk||s.multi?`<button data-fw="${key}"><span class="ic">⌚</span>Montre</button>`:`<button data-calopen="${key}"><span class="ic">📅</span>Agenda</button>`}${canReal?`<button class="${s.real?'on2':''}" data-realopen="${key}"><span class="ic">✎</span>${s.real?'Réalisé ✓':'Réalisé'}</button>`:`<button data-fiche="${key}"><span class="ic">☰</span>Détail</button>`}<button data-more="${key}" aria-label="Autres actions"><span class="ic" style="font-size:20px;line-height:18px">⋯</span>Plus</button></div><div class="actmenu" hidden></div>
+  return `<div class="acts a3n"><button class="pfait ${done?'on':''}" data-done="${key}"><span class="ic">✓</span>${done?'Faite':'Fait'}${s.real?' · réalisé noté':''}</button>
+    ${s.wk||s.multi?`<button data-fw="${key}"><span class="ic">⌚</span>Montre</button>`:`<button data-calopen="${key}"><span class="ic">📅</span>Agenda</button>`}<button data-more="${key}" aria-label="Autres actions"><span class="ic" style="font-size:20px;line-height:18px">⋯</span></button></div><div class="actmenu" hidden></div>
     ${s.multi&&!s.wk?`<div class="fwbox" data-fwbox="${key}" style="display:none;margin-top:8px"><div class="row"><button class="btn sm" data-wx="apple" data-key="${key}">Apple Watch · multisport</button></div><p class="hint">Séance multisport ${s.multi.length/2} × (nage en eau libre + course) : la montre suit l'enchaînement, les distances et allures sont dans le détail. Garmin ne permet pas de programmer un enchaînement de sports. <button class="linkbtn" data-howto="1">Comment faire ?</button></p></div>`:''}${s.wk?`<div class="fwbox" data-fwbox="${key}" style="display:none;margin-top:8px"><div class="row">${s.wk.sport==='ow'?'':`<button class="btn sm" data-wx="apple" data-key="${key}">Apple Watch</button>`}<button class="btn sm" data-wx="garmin" data-key="${key}">Garmin</button>${s.alts&&s.cat==='run'?`<button class="btn ghost sm" data-tow="${key}">✎ Modifier</button>`:''}</div><p class="hint">${s.wk.sport==='swim'?'Bassin de '+s.wk.pool+' m (Profil › Natation)'+(s.wk2?' · 2 fichiers : nage puis course':'')+'.':s.wk.sport==='ow'?'Eau libre : Garmin seulement (l\'Apple Watch ne gère pas les séances d\'eau libre personnalisées).':s.wk.sport==='renfo'?'Circuit chronométré : exercices en temps ou « jusqu\'à appui » pour les répétitions.':'Allure ± 10 s/km.'} ${STANDALONE?'':'Depuis Claude, le fichier arrive dans un .zip à ouvrir dans Fichiers. '}<button class="linkbtn" data-howto="1">Comment faire ?</button></p></div>`:''}`; }
 
 /* ---- carte héros (Aujourd'hui) ---- */
 function heroHTML(ws,dk,s,kick){ reg(ws,dk,s); const fe=(S.feel||{})[s.key]||{};
-  return `<div class="hero"><div data-fiche="${esc(s.key)}" style="cursor:pointer"><div class="kick" style="color:var(--${s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':s.cat==='race'?'race':'run'})">${esc(kick||TAGOF(s))}</div><h2 class="cond">${esc(s.title)}</h2><div class="small mut" style="margin-top:2px">${rich(s.sum)}</div>${clubChip(s)}
-    ${schemaHTML(s,true)}</div><div class="kpis">${keyFigures(s).map(([l,v])=>`<div class="kpi"><small>${l}</small><b>${esc(v)}</b></div>`).join('')}</div>
+  return `<div class="hero"><div data-fiche="${esc(s.key)}" style="cursor:pointer"><div class="kick" style="color:var(--${s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':s.cat==='race'?'race':'run'})">${esc(kick||TAGOF(s))}</div><h2 class="cond">${esc(dispTitle(s))}</h2><div class="small mut" style="margin-top:2px">${esc(techOf(s))}${rich(s.sum)}</div>${clubChip(s)}
+    ${schemaHTML(s,true)}</div>${stepsOf(s)?stepsHTML(s):`<div class="kpis">${keyFigures(s).map(([l,v])=>`<div class="kpi"><small>${l}</small><b>${esc(v)}</b></div>`).join('')}</div>`}
     ${s.cat==='off'?'':actsHTML(s)}${S.done[s.key]&&s.cat!=='race'&&s.cat!=='off'?feelHTML(s):''}
     <div style="margin-top:10px"><button class="linkbtn small" data-fiche="${esc(s.key)}">Voir le descriptif complet ›</button></div></div>`; }
 function feelHTML(s){ const fe=(S.feel||{})[s.key]||{}, key=esc(s.key);
@@ -1879,8 +1970,7 @@ function todayView(){
       h+=`<button class="coachrow" data-swtoday="${p.id}"><span class="adot sm" style="background:${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span><div style="flex:1;min-width:0;text-align:left"><b>${esc(p.name)}${p.id===ROOT.active?' <span class="chip">Actif</span>':''}</b><span>${s2.length?s2.map(s=>esc(s.title)).join(' + '):off2?'Pause':'Repos'}</span></div>${s2.length?`<span class="chk ${dn?'on':''}" aria-hidden="true">${dn?'✓':''}</span>`:''}</button>`; }
     h+=`</div>`; }
   h+=`<div class="sectitle">Objectif</div><div class="ctx"><button class="vma" data-tab="prof"><b>${fmtPaceSec(3600/S.profile.vma)}</b><small>allure VMA /km<br>${v1(S.profile.vma)} km/h</small></button>
-    <div class="small">${g?`<b>${esc(g.name)}</b> <span class="chip">${g.prio}</span><br><span class="mut">${parseD(g.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} · dans ${Math.max(0,Math.round((parseD(g.date)-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5))} jours</span>`:'<span class="mut">Aucune course au calendrier. Ajoute-en dans Plus › Courses.</span>'}</div></div>
-    <button class="btn ghost" data-pdfdlg="1" style="width:100%;margin-top:12px">Exporter le programme (PDF / Calendrier)</button>`;
+    <div class="small">${g?`<b>${esc(g.name)}</b> <span class="chip">${g.prio}</span><br><span class="mut">${parseD(g.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} · dans ${Math.max(0,Math.round((parseD(g.date)-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5))} jours</span>`:'<span class="mut">Aucune course au calendrier. Ajoute-en dans Plus › Courses.</span>'}</div></div>`;
   return h; }
 
 /* ---- vue Plus ---- */
@@ -1899,17 +1989,21 @@ function drawFiche(){ const s=SESS[ficheKey]; if(!s){ closeModal(); return; } co
   const d=parseD(dk), done=!!S.done[key];
   let h=`<div class="fback"><button data-close="1">‹ Retour</button><span class="small mut">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>
     <div class="tag ${s.cat}" style="color:var(--${s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':s.cat==='race'?'race':s.cat==='off'?'mut':'run'})">${esc(TAGOF(s))}${s.swapped?' · ↻ '+(s.swapped.auto?'préférence':'changée'):''}</div>
-    <h2 class="cond" style="font-size:30px;margin:2px 0 0;text-transform:uppercase;line-height:1.05">${esc(s.title)}</h2><div class="small mut" style="margin-top:2px">${rich(s.sum)}</div>
-    ${schemaHTML(s,true)}${s.wk?LEGEND:''}
-    <div class="kpis">${keyFigures(s).map(([l,v])=>`<div class="kpi"><small>${l}</small><b>${esc(v)}</b></div>`).join('')}</div>
+    <h2 class="cond" style="font-size:30px;margin:2px 0 0;text-transform:uppercase;line-height:1.05">${esc(dispTitle(s))}</h2><div class="small mut" style="margin-top:2px">${esc(techOf(s))}${rich(s.sum)}</div>
+    ${s.cat!=='race'&&s.cat!=='off'?`<details class="fd why"><summary>Pourquoi cette séance ?</summary><div class="in">${whyText(s,ws)}</div></details>`:''}
+    ${schemaHTML(s,true)}${stepsOf(s)?`<div class="schlab"><span>Échauffement</span><span>${esc((plainTitle(s)||{t:''}).t.split(' : ')[1]||'Corps de séance')}</span><span>Calme</span></div>`:''}
+    ${stepsOf(s)?'':`<div class="kpis">${keyFigures(s).map(([l,v])=>`<div class="kpi"><small>${l}</small><b>${esc(v)}</b></div>`).join('')}</div>`}
     ${s.ghost?ghostActs(s,dk):s.cat==='off'?'':actsHTML(s)}${done&&s.cat!=='race'&&s.cat!=='off'&&!s.ghost?feelHTML(s):''}
-    <details class="fd" open><summary>Détail complet de la séance</summary><div class="in">${s.blocks.map(b=>`<h4>${esc(b.h)}</h4><ul>${b.l.map(x=>`<li${/^Repère/.test(x)?' class="ref"':''}>${rich(x)}</li>`).join('')}</ul>`).join('')}</div></details>`;
+    ${stepsHTML(s)}
+    <details class="fd" ${stepsOf(s)?'':'open'}><summary>${stepsOf(s)?'Détails pour les connaisseurs':'Détail complet de la séance'}</summary><div class="in">${s.blocks.map(b=>`<h4>${esc(b.h)}</h4><ul>${b.l.map(x=>`<li${/^Repère/.test(x)?' class="ref"':''}>${rich(x)}</li>`).join('')}</ul>`).join('')}</div></details>`;
   if(s.ghost){ $('#sheet').innerHTML=h; return; }
-  if(s.cat!=='race'&&s.cat!=='off') h+=`<details class="fd" id="movebox"><summary>Déplacer${s.moved?' (déplacée)':''}</summary><div class="in"><div class="dchips">${DSHORT.map((dd,j)=>{ const x=addDays(ws,j), t=ymd(x); return `<button class="dchip ${t===dk?'on':''}" data-mv="${j}" data-key="${ek}" data-ws="${ymd(ws)}">${dd} ${x.getDate()}</button>`; }).join('')}</div><p class="hint">Dans la même semaine. Re-choisis le jour d'origine pour annuler.</p></div></details>`;
-  if(s.cat!=='off') h+=`<details class="fd" id="calbox"><summary>📅 Ajouter au calendrier</summary><div class="in"><div class="row" style="flex-wrap:wrap"><span class="small">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} à</span><input type="time" id="caltime" class="inp" style="width:120px" value="${calDefault(dk)}"><button class="btn sm" data-cal="${ek}">Ajouter</button></div>
+  h+=`<div class="actlist"><div class="alh">Autres actions</div>`;
+  if(s.cat!=='race'&&s.cat!=='off') h+=`<details class="fd" id="movebox"><summary><span class="ai">⇄</span>Changer de jour${s.moved?' (déplacée)':''}</summary><div class="in"><div class="dchips">${DSHORT.map((dd,j)=>{ const x=addDays(ws,j), t=ymd(x); return `<button class="dchip ${t===dk?'on':''}" data-mv="${j}" data-key="${ek}" data-ws="${ymd(ws)}">${dd} ${x.getDate()}</button>`; }).join('')}</div><p class="hint">Dans la même semaine. Re-choisis le jour d'origine pour annuler.</p></div></details>`;
+  if(s.cat!=='off') h+=`<details class="fd" id="calbox"><summary><span class="ai">📅</span>Ajouter à mon agenda</summary><div class="in"><div class="row" style="flex-wrap:wrap"><span class="small">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} à</span><input type="time" id="caltime" class="inp" style="width:120px" value="${calDefault(dk)}"><button class="btn sm" data-cal="${ek}">Ajouter</button></div>
     <p class="hint">${STANDALONE?'Le partage de l\'iPhone s\'ouvre : choisis <b>Mail</b> et envoie-toi le message. Dans l\'app Mail, touche la pièce jointe → « Ajouter au calendrier ».':'Le fichier .ics s\'ouvre dans le partage : choisis <b>Mail</b> et envoie-le-toi, puis touche la pièce jointe dans l\'app Mail → « Ajouter au calendrier ». (Si l\'appli te donne un .zip, ouvre-le dans Fichiers puis partage le .ics par Mail.)'} Durée : ${fmtMin(Math.max(15,s.dur||60))}.</p></div></details>`;
-  h+=planAltHTML(s);
   if(s.cat!=='race'&&s.cat!=='off') h+=editHTML(s);
+  if(s.alts) h+=`<button class="arow" data-chg="${ek}"><span class="ai">↻</span>Remplacer par une autre séance<span class="chev">›</span></button>`;
+  h+=`</div>`+planAltHTML(s);
   if(s.custom) h+=`<div style="margin-top:12px"><button class="btn ghost sm" data-uncust="${s.cid}">Retirer du programme</button></div>`;
   if(s.cat!=='race'&&s.cat!=='off') h+=`<div style="margin-top:12px"><button class="btn ghost sm danger" data-hide="${ek}">Supprimer cette séance</button></div>`;
   if(!done&&s.cat!=='race'&&s.cat!=='off') h+=`<p class="hint">Astuce : dans le Programme, balaye une séance vers la droite pour la marquer faite, vers la gauche pour la changer.</p>`;
@@ -2536,7 +2630,7 @@ let RT='run';
 function editHTML(s){ const k=esc(s.key), e=(S.edits||{})[s.key], x=(S.real||{})[s.key];
   const txt=e?e.text:s.blocks.map(b=>'— '+b.h+'\n'+b.l.join('\n')).join('\n').replace(/‹[^›]*›/g,'').replace(/ +\n/g,'\n');
   RT=x?x.t:(s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':'run');
-  return `<details class="fd" id="editbox"${e||x?' open':''}><summary>✎ Modifier / saisir ce que j'ai fait${e?' (modifiée)':''}${x?' (réalisé saisi)':''}</summary><div class="in">
+  return `<details class="fd" id="editbox"${e||x?' open':''}><summary><span class="ai">✎</span>Modifier la séance ou noter ce que j'ai fait${e?' (modifiée)':''}${x?' (réalisé noté)':''}</summary><div class="in">
    <h4>Ce que j'ai vraiment fait</h4><div class="pills">${Object.entries(RTYPES).map(([t,l])=>`<button class="${RT===t?'on':''}" data-rt="${t}">${l}</button>`).join('')}</div>
    <div class="grid2"><div><label class="f">Durée (min)</label><input class="inp" id="re-dur" inputmode="numeric" value="${esc(x?x.dur||'':s.dur||'')}"></div><div><label class="f">Distance (km)</label><input class="inp" id="re-km" inputmode="decimal" value="${esc(x?x.km||'':'')}"></div></div>
    <label class="f">Commentaire</label><input class="inp" id="re-note" value="${esc(x?x.note||'':'')}" placeholder="Ex. raccourci, genou sensible…">
@@ -2609,10 +2703,17 @@ document.addEventListener('click',e=>{ let t;
 let PROFTAB='allures';
 const PTABS=[['allures','Allures'],['dispos','Disponibilités'],['nat','Natation'],['prefs','Préférences'],['data','Mes données']];
 const PMAP={'Côtes':'prefs','Sportif':'allures','VMA':'allures','Cardio':'allures','Mes zones':'allures','Disponibilités':'dispos','Natation':'nat','Fractionné':'prefs','Préférences de séances':'prefs','Gestes':'prefs','Sauvegarde':'data','Mes données':'data'};
-function profPaged(html){ const parts=html.split('<div class="card sec">'); const head=parts.shift(); const G2={};
-  for(const p of parts){ const m=p.match(/^<h3>([^<]*)<\/h3>/); const g=(m&&PMAP[m[1]])||'data'; (G2[g]=G2[g]||[]).push('<div class="card sec">'+p); }
-  if(!G2[PROFTAB]) PROFTAB='allures';
-  return head+`<div class="ptabs">${PTABS.filter(([k])=>G2[k]).map(([k,l])=>`<button class="${PROFTAB===k?'on':''}" data-ptab="${k}">${l}</button>`).join('')}</div>`+(G2[PROFTAB]||[]).join(''); }
+/* Profil : « L'essentiel » d'abord, le reste replié dans « Réglages avancés » */
+const PESS=['Sportif','VMA','Disponibilités'], PLAB={'Sportif':'Mon niveau','VMA':'Ma VMA','Disponibilités':'Mes jours d\'entraînement','Mes zones':'Mes allures et zones','Réglages du sportif':'Réglages du sportif (recalcul, assistant, séances club)'};
+const PORD=['Mes zones','Cardio','Natation','Fractionné','Côtes','Préférences de séances','Gestes','Réglages du sportif','Sauvegarde','Mes données'];
+const POPEN=new Set();
+function profPaged(html){ const parts=html.split('<div class="card sec">'); const head=parts.shift(); const ess=[], adv=[];
+  for(const p of parts){ const m=p.match(/^<h3>([^<]*)<\/h3>/), t=m?m[1]:'', body='<div class="card sec">'+(PLAB[t]&&PESS.includes(t)?p.replace(/^<h3>[^<]*<\/h3>/,'<h3>'+PLAB[t]+'</h3>'):p);
+    if(PESS.includes(t)) ess.push([PESS.indexOf(t),body]); else adv.push([PORD.indexOf(t)<0?99:PORD.indexOf(t),t,p.replace(/^<h3>[^<]*<\/h3>/,'')]); }
+  ess.sort((a,b)=>a[0]-b[0]); adv.sort((a,b)=>a[0]-b[0]);
+  return head+`<div class="sectitle" style="margin-top:4px">L'essentiel</div>`+ess.map(x=>x[1]).join('')
+    +(adv.length?`<div class="sectitle">Réglages avancés</div>`+adv.map(([o,t,b])=>`<details class="fd psec" data-psec="${esc(t)}"${POPEN.has(t)?' open':''}><summary>${esc(PLAB[t]||t)}</summary><div class="in">`+b.replace(/<\/div>\s*$/,'')+`</div></details>`).join(''):''); }
+document.addEventListener('toggle',e=>{ const d=e.target; if(!d.matches||!d.matches('details[data-psec]')) return; if(d.open) POPEN.add(d.dataset.psec); else POPEN.delete(d.dataset.psec); },true);
 document.addEventListener('click',e=>{ const t=e.target.closest('[data-ptab]'); if(!t) return; PROFTAB=t.dataset.ptab; render(); window.scrollTo(0,0); });
 
 /* ===================== assistant de démarrage ===================== */
@@ -2671,7 +2772,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261119182027';
+const BUILD='20261119194307';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2768,6 +2869,7 @@ document.addEventListener('click',e=>{ let t;
 
 /* ===================== menus « ⋯ », vue compacte, synchro ===================== */
 function actMenuHTML(s){ const k=esc(s.key), it=[];
+  if(s.cat!=='race'&&s.cat!=='off') it.push(['✎','Noter ce que j\'ai fait',`data-realopen="${k}"`]);
   if(s.cat!=='race'&&s.cat!=='off') it.push(['✎','Modifier la séance',`data-mact="edit" data-key="${k}"`]);
   if(s.alts) it.push(['↻','Changer de séance',`data-chg="${k}"`]);
   if(s.wk&&s.cat==='run') it.push(['⌚','Éditer pour la montre',`data-tow="${k}"`]);
@@ -2784,7 +2886,8 @@ document.addEventListener('click',e=>{ let t;
     $('#sheet').innerHTML=`<h3>Programme</h3><div class="mlist">
       <button data-pdfdlg="1"><span>⬇︎</span>Exporter (PDF ou calendrier)</button>
       <label class="mrow"><span>📄</span>Importer un plan (Word ou PDF)<input type="file" id="planfile" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden></label>
-      <button data-compact="1"><span>☰</span>Vue compacte<b class="sw ${c?'on':''}" style="margin-left:auto"></b></button></div>
+      <button data-compact="1"><span>☰</span>Vue compacte<b class="sw ${c?'on':''}" style="margin-left:auto"></b></button>
+      ${PASTHIDDEN?`<button data-showpast="1"><span>↑</span>Voir ${PASTHIDDEN>1?'les '+PASTHIDDEN+' semaines précédentes':'la semaine précédente'} du mois</button>`:''}</div>${planBarHTML().replace('<details class="imppill">','<details class="imppill" open>')}
       <p class="hint">Importer un plan : les séances de course du fichier remplacent celles de l'appli sur la période (Word ou PDF texte, avec les jours « Mardi 03 … »).</p>`;
     $('#modal').classList.add('show'); return; }
   if(t=e.target.closest('[data-compact]')){ ROOT.settings=ROOT.settings||{}; ROOT.settings.compact=!ROOT.settings.compact; save(); closeModal(); render(); return; }
@@ -2968,7 +3071,7 @@ function applyHidden(r,data){ const H=data.hidden||{}; if(!Object.keys(H).length
   if(r.ghosts) for(const i in r.ghosts) r.ghosts[i]=r.ghosts[i].filter(g=>!H[g.key.slice(2)]);
   return r; }
 function dayExtras(ws,dk,i,W){ let h='';
-  for(const g of ((W.ghosts||{})[i]||[])){ reg(ws,dk,g); h+=`<div class="srow run ghostrow" data-fiche="${esc(g.key)}"><div class="t"><div class="tag">💡 Suggestion de l'appli${g.restDay?' · repos dans le plan':''}</div><b>${esc(g.title)}</b><span>${rich(g.sum)}${g.dur?' · ≈ '+fmtMin(g.dur):''}</span></div></div>`; }
+  for(const g of ((W.ghosts||{})[i]||[])){ reg(ws,dk,g); h+=`<details class="ghostd"><summary>+ Voir la suggestion de l'appli</summary><div class="srow run ghostrow" data-fiche="${esc(g.key)}"><div class="t"><div class="tag">💡 Suggestion de l'appli${g.restDay?' · repos dans le plan':''}</div><b>${esc(g.title)}</b><span>${rich(g.sum)}${g.dur?' · ≈ '+fmtMin(g.dur):''}</span></div></div></details>`; }
   const hd=(W.hid||{})[i]; if(hd&&hd.length) h+=`<div class="hidl">${hd.length} séance${hd.length>1?'s':''} supprimée${hd.length>1?'s':''} (${esc(hd.join(', '))}) · <button class="linkbtn" data-unhide="${dk}">Rétablir</button></div>`;
   return h; }
 function ghostActs(s,dk){ return `<div class="ev att" style="margin:12px 0"><b>Suggestion de l'appli</b>${s.restDay?'Le plan importé prévoit du repos ce jour-là. ':'Le plan importé prévoit une autre séance ce jour-là. '}Tu peux faire celle-ci à la place.<div style="margin-top:8px"><button class="btn sm" data-useapp="${dk}">Faire la séance de l'appli à la place</button></div></div>`; }

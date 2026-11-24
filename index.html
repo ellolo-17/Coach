@@ -826,6 +826,7 @@ function makeEngine(S,H){ H=H||{};
           if(day===d||day===d-1) delete runMap[k];
           else if(r.prio!=='C'&&day>d) runMap[k]='E-';
           else if(r.prio==='A'||r.prio==='B'){ if(runMap[k]==='LR'||runMap[k]==='Q2') delete runMap[k]; if(runMap[k]==='Q1'&&d-day<3) runMap[k]='E'; }
+          else if(V4){ if(runMap[k]==='LR') delete runMap[k]; else if((runMap[k]==='Q1'||runMap[k]==='Q2')&&d-day<=2) runMap[k]='E'; } // course C (dès le 24/11) : elle remplace la sortie longue, pas de séance dure dans les 2 jours avant
           else if(runMap[k]==='Q1') delete runMap[k];
         }
         if(r.prio!=='C'){
@@ -836,7 +837,7 @@ function makeEngine(S,H){ H=H||{};
     }
     if(V4){ // après une course A ou B : pas de séance dure pendant quelques jours (5 km : 2, 10 km : 3, semi et plus : 5)
       for(const k of Object.keys(runMap)){ const day=addDays(ws,+k);
-        const hit=races().some(r=>(r.prio==='A'||r.prio==='B')&&parseD(r.date)<day&&(day-parseD(r.date))/864e5<=recDays(r));
+        const hit=races().some(r=>parseD(r.date)<day&&(day-parseD(r.date))/864e5<=recDays(r)); // toutes priorités, C comprises
         if(hit&&(runMap[k]==='Q1'||runMap[k]==='Q2')) runMap[k]='E'; } }
     LRSOFT=false;
     if(V3){ // dosage de l'intensité selon le niveau
@@ -1109,7 +1110,7 @@ function engineFor(pid,hooks){ const p=ath(pid); if(!p) return null;
   const view=Object.assign({},p.data,{races:racesFor(pid)});
   const live=liveEngine(pid,view,hooks), fz=p.data.frozen;
   const withCustoms=base=>Object.assign({},base,{buildWeek:ws=>{ const r=base.buildWeek(ws); const we=ymd(addDays(ws,6)), w0=ymd(ws);
-    for(const a of (p.data.adds||[])){ if(a.date<w0||a.date>we) continue; let s; try{ s=live.extraSession(a.x,ws); }catch(e){ continue; } s.key=a.date+'|+'+s.title+'|'+a.id; s.orig=a.date; s.aid=a.id; const mv=(p.data.moves||{})[s.key], d=mv&&mv>=w0&&mv<=we?parseD(mv):parseD(a.date); if(mv) s.moved=true; r.days[wd(d)].push(s); }
+    for(const a of (p.data.adds||[])){ if(a.date<w0||a.date>we) continue; let s; try{ s=/^free:/.test(a.x)?freeSession(a):live.extraSession(a.x,ws); }catch(e){ continue; } s.key=a.date+'|+'+s.title+'|'+a.id; s.orig=a.date; s.aid=a.id; const mv=(p.data.moves||{})[s.key], d=mv&&mv>=w0&&mv<=we?parseD(mv):parseD(a.date); if(mv) s.moved=true; r.days[wd(d)].push(s); }
     for(const c of (p.data.customs||[])){ if(c.date<w0||c.date>we) continue; const s=wbSession(live,c.w); s.key=c.date+'|'+s.title+'|'+c.id; s.orig=c.date; s.cw=c.w; s.cid=c.id;
       const mv=(p.data.moves||{})[s.key], d=mv&&mv>=w0&&mv<=we?parseD(mv):parseD(c.date); if(mv) s.moved=true; r.days[wd(d)].push(s); }
     return applyHidden(applyEdits(applyPlan(r,p.data,ws),p.data),p.data); }});
@@ -1240,12 +1241,18 @@ let todayOpened=false, showPastWeeks=false, PASTHIDDEN=0;
 const ROO=()=>{ const a=activeAth(); return !!(a&&a.ro); };
 /* ajouter une séance un jour au choix : sport puis séance adaptée (pas de fractionné) */
 let ADD=null;
+/* séance libre : durée et description saisies par le sportif */
+function freeSession(a){ const cat=String(a.x).split(':')[1]||'run', nm={run:'Course',renfo:'Renfo',swim:'Natation'}[cat]||'Course', T=String(a.txt||'').trim();
+  return {cat,type:'Séance libre',title:'Séance libre · '+nm,dur:+a.dur||null,sum:T?T.replace(/\s+/g,' ').slice(0,90):'À ton rythme',blocks:[{h:'Séance libre',l:[T||'Séance au choix, à ton rythme.']}],added:true,noAlt:true,free:true}; }
 function addSheet(){ const A=ADD, days=A.days, d=A.day, L=EN.extraList(mondayOf(parseD(d))), lab=x=>parseD(x).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   const SP=[['run','Course'],['renfo','Renfo'],['swim','Natation']];
   $('#sheet').innerHTML=`<h3>Ajouter une séance</h3>
   ${days.length>1?`<div class="dchips" style="margin-bottom:10px">${days.map(x=>`<button class="dchip ${x===d?'on':''}" data-addpick="${x}">${parseD(x).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})}</button>`).join('')}</div>`:`<div class="small mut" style="margin:-6px 0 12px">${lab(d)}</div>`}
   <div class="seg" style="margin-bottom:12px">${SP.map(([k,l])=>`<button class="${A.sport===k?'on':''}" data-addsport="${k}">${l}</button>`).join('')}</div>
-  ${A.sport?`<div class="dsopts">${L.filter(x=>x.cat===A.sport).map(x=>`<button data-addx="${esc(x.id)}"><b>${esc(x.t)}</b></button>`).join('')}</div>`:'<p class="hint">Choisis un sport.</p>'}
+  ${A.sport?(A.free?`<label class="f" style="margin-top:0">Durée (minutes)</label><input class="inp" id="af-dur" inputmode="numeric" placeholder="ex. 45">
+  <label class="f">Description</label><textarea class="inp" id="af-txt" rows="3" placeholder="ex. sortie vélo, fartlek avec le groupe, piscine libre…"></textarea>
+  <div class="row" style="margin-top:12px;gap:8px"><button class="btn" data-addfreesave="1">Ajouter</button><button class="btn ghost" data-addfree="0">Retour</button></div>`
+  :`<div class="dsopts">${L.filter(x=>x.cat===A.sport).map(x=>`<button data-addx="${esc(x.id)}"><b>${esc(x.t)}</b></button>`).join('')}<button data-addfree="1"><b>Séance libre</b><small>Tu choisis la durée et tu décris la séance</small></button></div>`):'<p class="hint">Choisis un sport.</p>'}
   <p class="hint">La séance s'ajoute à ton programme sans modifier les autres. Tu pourras la retirer avec ⋯.</p>`; }
 function openAdd(days){ if(modalKind) closeModal(); ADD={days,day:days[0],sport:null}; modalKind='add'; addSheet(); $('#modal').classList.add('show'); }
 /* fenêtre après « Fait » : comme prévu / différemment / pas faite + ressenti */
@@ -1432,7 +1439,11 @@ document.addEventListener('click',async e=>{
   if(e.target.closest('[data-showpast]')){ showPastWeeks=true; if(modalKind) closeModal(); render(); return; }
   if(t=e.target.closest('[data-addday]')){ const ds=t.dataset.addday.split(',').filter(Boolean); if(ds.length) openAdd(ds); return; }
   if(t=e.target.closest('[data-addpick]')){ ADD.day=t.dataset.addpick; addSheet(); return; }
-  if(t=e.target.closest('[data-addsport]')){ ADD.sport=t.dataset.addsport; addSheet(); return; }
+  if(t=e.target.closest('[data-addsport]')){ ADD.sport=t.dataset.addsport; ADD.free=false; addSheet(); return; }
+  if(t=e.target.closest('[data-addfree]')){ ADD.free=t.dataset.addfree==='1'; addSheet(); return; }
+  if(e.target.closest('[data-addfreesave]')){ const dur=parseInt(($('#af-dur')||{}).value,10), txt=(($('#af-txt')||{}).value||'').trim().slice(0,400);
+    if(!(dur>0&&dur<=600)){ toast('Indique une durée en minutes'); return; }
+    S.adds=S.adds||[]; S.adds.push({id:'a'+Date.now().toString(36),date:ADD.day,x:'free:'+ADD.sport,dur,txt}); save(); closeModal(); render(); toast('Séance libre ajoutée'); return; }
   if(t=e.target.closest('[data-addx]')){ S.adds=S.adds||[]; S.adds.push({id:'a'+Date.now().toString(36),date:ADD.day,x:t.dataset.addx}); save(); closeModal(); render(); toast('Séance ajoutée'); return; }
   if(t=e.target.closest('[data-unadd]')){ const id=t.dataset.unadd; S.adds=(S.adds||[]).filter(a=>a.id!==id); save(); if(modalKind) closeModal(); render(); toast('Séance retirée'); return; }
   if(t=e.target.closest('[data-dfeel]')){ const k=t.dataset.key; S.feel[k]=Object.assign({},S.feel[k],{r:+t.dataset.dfeel}); save(); t.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===t)); return; }
@@ -1613,6 +1624,8 @@ function guideView(){
    <li><b>Fait</b> : le bouton orange ouvre une petite fenêtre : faite comme prévu, faite différemment (tu notes durée et distance) ou pas faite (tu peux la changer de jour), et ton ressenti. Dans le Programme, le rond à droite coche directement.</li>
    <li><b>Alerte fatigue</b> : si tes dernières séances sont notées dures, un bandeau propose d'alléger la semaine en un geste.</li>
    <li><b>Changer de séance</b> : dans la séance ouverte, bouton ⋯ → « Changer de séance » propose des alternatives qui travaillent le même objectif (ex. le seuil en fartlek nature, tempo progressif, côtes ou fractions courtes ; un footing en vélo ou marche nordique). Coche l'option pour en faire une préférence permanente, réglable aussi dans Profil › Réglages avancés › Préférences de séances.</li>
+   <li><b>Ajouter une séance</b> : sur un jour de repos, « + Ajouter une séance » (ou ⋯ → « Ajouter une séance ce jour ») : footing, renfo, natation, ou une séance libre dont tu choisis la durée et la description. Elle ne modifie pas le reste du programme ; ⋯ → « Retirer cette séance ajoutée » pour l'enlever.</li>
+   <li><b>Courses rapprochées</b> : la course A ou B la plus proche guide les séances de sa semaine. Après chaque course, même une course C, quelques jours sans séance dure (2 après un 5 km, 3 après un 10 km, 5 après un semi ou plus) ; avant une course C, pas de séance dure dans les 2 jours, et elle remplace la sortie longue.</li>
    <li><b>Changer de jour</b> : dans la séance ouverte, bouton ⋯ → « Changer de jour », puis choisis un autre jour de la même semaine. Re-choisis le jour d'origine pour l'annuler.</li>
    <li><b>Onglet Aujourd'hui</b> : la séance du jour en grand, avec son profil (hauteur = intensité, gris = échauffement et récupération), son déroulé en 3 lignes et 3 boutons : Fait, Montre et ⋯ (noter ce que j'ai fait, modifier, changer de séance ou de jour, agenda, supprimer). Plus bas : demain, la semaine en pastilles avec la jauge de volume, et ton objectif.</li>
    <li><b>Programme</b> : touche une séance pour ouvrir sa fiche plein écran. Balaye vers la droite pour la marquer faite, vers la gauche pour la changer.</li>
@@ -2046,7 +2059,7 @@ function drawFiche(){ const s=SESS[ficheKey]; if(!s){ closeModal(); return; } co
   let h=`<div class="fback"><button data-close="1">‹ Retour</button><span class="small mut">${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>
     <div class="tag ${s.cat}" style="color:var(--${s.cat==='swim'?'swim':s.cat==='renfo'?'renfo':s.cat==='race'?'race':s.cat==='off'?'mut':'run'})">${esc(TAGOF(s))}${s.swapped?' · ↻ '+(s.swapped.auto?'préférence':'changée'):''}</div>
     <h2 class="cond" style="font-size:30px;margin:2px 0 0;text-transform:uppercase;line-height:1.05">${esc(dispTitle(s))}</h2><div class="small mut" style="margin-top:2px">${subOf(s)}${stepsOf(s)&&/Sur |Côte/.test(s.sum)?' · '+rich(s.sum):''}</div>
-    ${s.cat!=='race'&&s.cat!=='off'?`<details class="fd why"><summary>Pourquoi cette séance ?</summary><div class="in">${whyText(s,ws)}</div></details>`:''}
+    ${s.cat!=='race'&&s.cat!=='off'&&!s.free?`<details class="fd why"><summary>Pourquoi cette séance ?</summary><div class="in">${whyText(s,ws)}</div></details>`:''}
     ${schemaHTML(s,true)}${stepsOf(s)?`<div class="schlab"><span>Échauffement</span><span>${esc(structOf(s)||'Corps de séance')}</span><span>Calme</span></div>`:''}
     ${stepsOf(s)?'':`<div class="kpis">${keyFigures(s).map(([l,v])=>`<div class="kpi"><small>${l}</small><b>${esc(v)}</b></div>`).join('')}</div>`}
     ${s.ghost?ghostActs(s,dk):s.cat==='off'?'':actsHTML(s)}${done&&s.cat!=='race'&&s.cat!=='off'&&!s.ghost?feelHTML(s):''}
@@ -2827,7 +2840,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261124084946';
+const BUILD='20261124085721';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };

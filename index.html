@@ -264,6 +264,7 @@ details.ghostd[open]>summary{text-decoration:none}
 .dsopts button{text-align:left;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:12px 14px;min-height:52px;color:var(--ink)}
 .dsopts button b{display:block;font-size:15px}.dsopts button small{display:block;color:var(--mut);font-size:12.5px;margin-top:2px}
 .actmenu[hidden]{display:none!important}
+.addbtn{border:0;background:none;color:var(--run);font:600 13px Inter,sans-serif;padding:6px 0;min-height:36px;cursor:pointer}
 .seg.mini button{padding:6px 10px;font-size:12.5px}
 </style>
 </head>
@@ -484,6 +485,8 @@ function makeEngine(S,H){ H=H||{};
     const inWeek=R.filter(r=>{const d=parseD(r.date);return d>=ws&&d<=we;});
     let target=R.find(r=>r.prio==='A'&&parseD(r.date)>=ws&&weeksBetween(ws,mondayOf(parseD(r.date)))<=20)
             || R.find(r=>r.prio==='B'&&parseD(r.date)>=ws&&weeksBetween(ws,mondayOf(parseD(r.date)))<=12) || null;
+    const v4=BUILD?V4:ymd(we)>=V4FROM;
+    if(v4){ const near=inWeek.filter(r=>r.prio==='A'||r.prio==='B').sort((a,b)=>parseD(a.date)-parseD(b.date))[0]; if(near&&near!==target) target=near; }
     const w=target?weeksBetween(ws,mondayOf(parseD(target.date))):null;
     const aNext=R.find(r=>r.prio==='A'&&parseD(r.date)>=ws)||null, wA=aNext?weeksBetween(ws,mondayOf(parseD(aNext.date))):null;
     const cyc=LVL.cyc||((+P.age>=50)?3:4);
@@ -570,6 +573,9 @@ function makeEngine(S,H){ H=H||{};
   const V2FROM='2026-11-18'; let V2=false; const DEB=P.level==='debutant';
   /* règles v3 (à partir du 20/11/2026) : niveaux différenciés, dosage de l'intensité, allègements −25 %, experts 6 sorties, renfo par niveau */
   const V3FROM='2026-11-20'; let V3=false, BUILD=false, LRSOFT=false; const EXP=P.level==='expert';
+  /* règles v4 (à partir du 24/11/2026) : la course A/B la plus proche prévaut dans sa semaine, jours sans intensité après une course, libellés d'allure exacts */
+  const V4FROM='2026-11-24'; let V4=false;
+  const recDays=r=>{ const km=+r.km||0, e=r.type==='nature'?km+(+r.dplus||0)/100:km; if(r.type==='swimrun') return 5; return e<=6?2:e<=12?3:e<=25?5:5; };
   const HMAX=()=>P.hillMax!=null?+P.hillMax:60;
   const SEUIL_DEB=[
     m=>({t:"Seuil · 4 × 3'",l:[reps(4,{t:180},85,"1'30 trot",m)],mm:16.5,fix:true}),
@@ -609,7 +615,7 @@ function makeEngine(S,H){ H=H||{};
       const mainS=k=>k*(Z*60/v+2)-2; while(n>1&&20+mainS(n)>CAP) n--; const ws_=20+mainS(n)+10<=CAP?[20,10]:[15,5];
       return {cat:'run',type:'Spécifique swimrun',title:'Spécifique swimrun · Big Run '+kmS(b.br),sum:n+' × '+kmS(Z)+' allure course',dur:Math.round((ws_[0]+mainS(n)+ws_[1])/5)*5,q:true,wk:{warm:true,blocks:[{iter:n,steps:[{p:'work',g:['dist',Z*1000],pace:3600/v},{p:'rec',g:['time',120]}]}]},
         blocks:[{h:'Échauffement',l:[WARM(ws_[0])]},{h:'Corps de séance',l:[n+' × '+kmS(Z)+' à '+pace(v)+' ('+p+' % VMA) — récup 2\' marche/trot','Simule les transitions : à chaque récup, ouvre/ferme la combinaison, change de prise du pull-buoy','Terrain varié (chemins, petites relances)','Ton plus long segment de course (Big Run) : '+kmS(b.br)+'. La longueur des répétitions grandit jusqu\'à la course'+(b.set?'':' (estimé : renseigne-le dans la course)')]},{h:'Retour au calme',l:[COOL(ws_[1])]}]}; }
-    const v=raceSpeed(r), p=Math.round(v/P.vma*100), lbl={'10k':'allure 10 km',semi:'allure semi',marathon:'allure marathon'}[k];
+    const v=raceSpeed(r), p=Math.round(v/P.vma*100), lbl=V4&&k==='10k'&&(+r.km||10)<=6?'allure 5 km':{'10k':'allure 10 km',semi:'allure semi',marathon:'allure marathon'}[k];
     const L={'10k':[[6,{d:1000},"1'30"],[3,{d:2000},"2'"],[5,{d:1200},"1'30"],[2,{d:3000},"3'"]],
              semi:[[4,{d:2000},"1'30"],[3,{d:3000},"2'"],[3,{d:4000},"2'30"],[2,{d:5000},"3'"]],
              marathon:[[3,{t:900},"3'"],[2,{t:1500},"4'"],[3,{d:5000},"3'"],[2,{t:1800},"4'"]]}[k];
@@ -747,7 +753,7 @@ function makeEngine(S,H){ H=H||{};
   const PREFS={'Seuil':['fartlek','tempo','cotesSeuil','courtes'],'VMA courte':['cotesC','fartV'],'VMA longue':['cotesL','fartL'],'Côtes':['plat','fartlek']};
   function altsFor(s,c,iw,cap){
     if(s.noAlt||s.cat==='race'||s.cat==='off') return null;
-    const v2=V2, v3=V3, ls=LRSOFT, keepV=f=>()=>{ const o=V2, o3=V3, ob=BUILD, ol=LRSOFT; V2=v2; V3=v3; BUILD=true; LRSOFT=ls; try{ return f(); } finally{ V2=o; V3=o3; BUILD=ob; LRSOFT=ol; } };
+    const v2=V2, v3=V3, v4=V4, ls=LRSOFT, keepV=f=>()=>{ const o=V2, o3=V3, o4=V4, ob=BUILD, ol=LRSOFT; V2=v2; V3=v3; V4=v4; BUILD=true; LRSOFT=ls; try{ return f(); } finally{ V2=o; V3=o3; V4=o4; BUILD=ob; LRSOFT=ol; } };
     const mk=id=>({id,l:ALT[id].l,why:ALT[id].why,make:keepV(()=>withCap(cap,()=>ALT[id].make(c,s)))});
     const variant=(id,l,why,f)=>({id,l,why,make:keepV(()=>withCap(cap,f))});
     const ids={'Seuil':['fartlek','tempo','cotesSeuil','courtes'],'VMA courte':['cotesC','fartV'],'VMA longue':['cotesL','fartL'],'Côtes':['plat','fartlek'],
@@ -776,8 +782,8 @@ function makeEngine(S,H){ H=H||{};
   }
 
   /* ----- semaine ----- */
-  const verOf=d=>d>=V3FROM?3:d>=V2FROM?2:1;
-  function buildV(ws,v){ const o3=V3, ob=BUILD; V2=v>=2; V3=v>=3; BUILD=true; try{ return buildWeek0(ws); } finally{ V3=o3; BUILD=ob; LRSOFT=false; } }
+  const verOf=d=>d>=V4FROM?4:d>=V3FROM?3:d>=V2FROM?2:1;
+  function buildV(ws,v){ const o3=V3, o4=V4, ob=BUILD; V2=v>=2; V3=v>=3; V4=v>=4; BUILD=true; try{ return buildWeek0(ws); } finally{ V3=o3; V4=o4; BUILD=ob; LRSOFT=false; } }
   function buildWeek(ws){ const vs=[0,1,2,3,4,5,6].map(i=>verOf(ymd(addDays(ws,i))));
     if(vs.every(v=>v===vs[0])) return buildV(ws,vs[0]);
     // semaine de bascule : chaque jour avec les règles en vigueur à sa date
@@ -828,6 +834,10 @@ function makeEngine(S,H){ H=H||{};
         }
       }
     }
+    if(V4){ // après une course A ou B : pas de séance dure pendant quelques jours (5 km : 2, 10 km : 3, semi et plus : 5)
+      for(const k of Object.keys(runMap)){ const day=addDays(ws,+k);
+        const hit=races().some(r=>(r.prio==='A'||r.prio==='B')&&parseD(r.date)<day&&(day-parseD(r.date))/864e5<=recDays(r));
+        if(hit&&(runMap[k]==='Q1'||runMap[k]==='Q2')) runMap[k]='E'; } }
     LRSOFT=false;
     if(V3){ // dosage de l'intensité selon le niveau
       const nRun=Object.keys(runMap).length, cap=DEB?(nRun>=4?2:1):EXP?(nRun>=5?3:2):2;
@@ -934,7 +944,19 @@ function makeEngine(S,H){ H=H||{};
     return {ctx:c,days:out,qRaw};
   }
 
-  return {ALTL:Object.fromEntries(Object.entries(ALT).map(([k,v])=>[k,v.l])),PREFS,evalSolo,bigs,kmh,pace,hr,hrR,hrMax,range,css,swP,predict,evaluate,weekCtx,buildWeek,kindOf,raceDur};
+  /* séances ajoutées par le sportif (jour de repos ou en plus) : sans fractionné */
+  function extraList(ws){ const c=weekCtx(ws), L=[];
+    L.push({id:'run:30',cat:'run',t:"Footing 30'"},{id:'run:45',cat:'run',t:"Footing 45'"},{id:'run:60',cat:'run',t:"Footing 1h"},{id:'run:lig',cat:'run',t:"Footing 40' + lignes droites"});
+    const rk=(DEB?['R5','R1','R2','R4']:EXP?['R6','R1','R2','R4']:['R1','R2','R4']).concat(c.swimT?['R3']:[]);
+    for(const k of rk) L.push({id:'renfo:'+k,cat:'renfo',t:RENFO[k].t});
+    [0,3,1,4].concat(c.swimT?[2]:[]).forEach(i=>{ const s=swimPool(c,0,'base',i); L.push({id:'swim:'+i,cat:'swim',t:s.title.replace(/^Piscine · /,'Piscine : ')}); });
+    return L; }
+  function extraSession(id,ws){ const c=weekCtx(ws), [k,v]=String(id).split(':'); const oc=CAP; CAP=Infinity; let s;
+    try{ if(k==='run') s=v==='lig'?footing(40,'+ 5 lignes droites de 80 m en fin de footing (accélérations progressives, pas un sprint)'):footing(+v||45);
+      else if(k==='renfo') s=renfo(c,0,RENFO[v]?v:'R1');
+      else s=swimPool(c,0,'base',+v||0); } finally{ CAP=oc; }
+    s.added=true; s.noAlt=true; delete s.alts; return s; }
+  return {extraList,extraSession,ALTL:Object.fromEntries(Object.entries(ALT).map(([k,v])=>[k,v.l])),PREFS,evalSolo,bigs,kmh,pace,hr,hrR,hrMax,range,css,swP,predict,evaluate,weekCtx,buildWeek,kindOf,raceDur};
 }
 
 if(typeof module!=='undefined') module.exports={fmtMin,makeEngine,defaultState,parseD,ymd,addDays,mondayOf,fmtHMS,parseHMS,isoWeek,wd,DAYS,DSHORT,MONTHS};
@@ -1071,7 +1093,7 @@ function mergeAth(o){
   const d=defaultState(); o=purgeOld(o||{}); const op=o.profile||{};
   const prof=Object.assign(d.profile,op,{avail:Object.assign(d.profile.avail,op.avail||{})});
   if(prof.vmaMode==='alterne') prof.vmaMode='alt1';
-  return {profile:prof,races:o.races||[],done:o.done||{},feel:o.feel||{},moves:o.moves||{},blocks:o.blocks||[],swaps:o.swaps||{},frozen:o.frozen||null,workouts:o.workouts||[],customs:o.customs||[],edits:o.edits||{},real:o.real||{},plan:o.plan||{},imports:o.imports||[],useApp:o.useApp||{},hidden:o.hidden||{},useLog:o.useLog||{}};
+  return {profile:prof,races:o.races||[],done:o.done||{},feel:o.feel||{},moves:o.moves||{},blocks:o.blocks||[],swaps:o.swaps||{},frozen:o.frozen||null,workouts:o.workouts||[],customs:o.customs||[],adds:o.adds||[],edits:o.edits||{},real:o.real||{},plan:o.plan||{},imports:o.imports||[],useApp:o.useApp||{},hidden:o.hidden||{},useLog:o.useLog||{}};
 }
 function migrate(o){ o=o||{};
   if(Array.isArray(o.profiles)&&o.profiles.length) return {profiles:o.profiles.slice(0,Math.max(MAXATH,20)).map((p,i)=>({id:String(p.id||('p'+i)),name:p.name||'Sportif',color:p.color||COLORS[i%COLORS.length],data:mergeAth(p.data)})),active:o.active,savedAt:o.savedAt||null,lastBackup:o.lastBackup||null,settings:Object.assign({coachView:true,noSwipe:false},o.settings||{})};
@@ -1087,6 +1109,7 @@ function engineFor(pid,hooks){ const p=ath(pid); if(!p) return null;
   const view=Object.assign({},p.data,{races:racesFor(pid)});
   const live=liveEngine(pid,view,hooks), fz=p.data.frozen;
   const withCustoms=base=>Object.assign({},base,{buildWeek:ws=>{ const r=base.buildWeek(ws); const we=ymd(addDays(ws,6)), w0=ymd(ws);
+    for(const a of (p.data.adds||[])){ if(a.date<w0||a.date>we) continue; let s; try{ s=live.extraSession(a.x,ws); }catch(e){ continue; } s.key=a.date+'|+'+s.title+'|'+a.id; s.orig=a.date; s.aid=a.id; const mv=(p.data.moves||{})[s.key], d=mv&&mv>=w0&&mv<=we?parseD(mv):parseD(a.date); if(mv) s.moved=true; r.days[wd(d)].push(s); }
     for(const c of (p.data.customs||[])){ if(c.date<w0||c.date>we) continue; const s=wbSession(live,c.w); s.key=c.date+'|'+s.title+'|'+c.id; s.orig=c.date; s.cw=c.w; s.cid=c.id;
       const mv=(p.data.moves||{})[s.key], d=mv&&mv>=w0&&mv<=we?parseD(mv):parseD(c.date); if(mv) s.moved=true; r.days[wd(d)].push(s); }
     return applyHidden(applyEdits(applyPlan(r,p.data,ws),p.data),p.data); }});
@@ -1205,8 +1228,8 @@ function planView(){
     const empty=i=>!W.days[i].length&&!dayExtras(ws,ymd(addDays(ws,i)),i,W)&&ymd(addDays(ws,i))!==TODAY;
     for(let i=0;i<7;i++){ const d=addDays(ws,i), dk=ymd(d), inM=d.getMonth()===cur.getMonth(), ss=W.days[i];
       if(empty(i)){ let j=i; while(j<6&&empty(j+1)&&addDays(ws,j+1).getMonth()===d.getMonth()) j++;
-        if(j>i){ const dj=addDays(ws,j); h+=`<div class="day ${inM?'':'out'}" id="d-${dk}"><div class="dlabel">${DSHORT[i]}<b>${d.getDate()}</b></div><div class="sessions"><div class="rest">Repos jusqu'à ${DAYS[j].toLowerCase()} ${dj.getDate()}</div>${[...Array(j-i)].map((_,x)=>`<span id="d-${ymd(addDays(ws,i+x+1))}"></span>`).join('')}</div></div>`; i=j; continue; } }
-      h+=`<div class="day ${dk===TODAY?'today':''} ${inM?'':'out'}" id="d-${dk}"><div class="dlabel">${DSHORT[i]}<b>${d.getDate()}</b></div><div class="sessions">${ss.length?ss.map(s=>sessRow(ws,dk,s)).join(''):'<div class="rest">Repos</div>'}${dayExtras(ws,dk,i,W)}</div></div>`; }
+        if(j>i){ const dj=addDays(ws,j); h+=`<div class="day ${inM?'':'out'}" id="d-${dk}"><div class="dlabel">${DSHORT[i]}<b>${d.getDate()}</b></div><div class="sessions"><div class="rest">Repos jusqu'à ${DAYS[j].toLowerCase()} ${dj.getDate()}</div>${ymd(dj)>=TODAY&&!ROO()?`<button class="addbtn" data-addday="${[...Array(j-i+1)].map((_,x)=>ymd(addDays(ws,i+x))).filter(x=>x>=TODAY).join(',')}">+ Ajouter une séance</button>`:''}${[...Array(j-i)].map((_,x)=>`<span id="d-${ymd(addDays(ws,i+x+1))}"></span>`).join('')}</div></div>`; i=j; continue; } }
+      h+=`<div class="day ${dk===TODAY?'today':''} ${inM?'':'out'}" id="d-${dk}"><div class="dlabel">${DSHORT[i]}<b>${d.getDate()}</b></div><div class="sessions">${ss.length?ss.map(s=>sessRow(ws,dk,s)).join(''):'<div class="rest">Repos</div>'+(dk>=TODAY&&!ROO()?`<button class="addbtn" data-addday="${dk}">+ Ajouter une séance</button>`:'')}${dayExtras(ws,dk,i,W)}</div></div>`; }
     h+='</div></section>';
   }
   h+=`<p class="hint">Touche une séance pour l'ouvrir. Balaye vers la droite : faite ✓. Vers la gauche : changer. Les pastilles résument la semaine (vert EF → rouge VMA, bleu natation, violet renfo, or course).</p>`;
@@ -1214,6 +1237,17 @@ function planView(){
 }
 
 let todayOpened=false, showPastWeeks=false, PASTHIDDEN=0;
+const ROO=()=>{ const a=activeAth(); return !!(a&&a.ro); };
+/* ajouter une séance un jour au choix : sport puis séance adaptée (pas de fractionné) */
+let ADD=null;
+function addSheet(){ const A=ADD, days=A.days, d=A.day, L=EN.extraList(mondayOf(parseD(d))), lab=x=>parseD(x).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const SP=[['run','Course'],['renfo','Renfo'],['swim','Natation']];
+  $('#sheet').innerHTML=`<h3>Ajouter une séance</h3>
+  ${days.length>1?`<div class="dchips" style="margin-bottom:10px">${days.map(x=>`<button class="dchip ${x===d?'on':''}" data-addpick="${x}">${parseD(x).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})}</button>`).join('')}</div>`:`<div class="small mut" style="margin:-6px 0 12px">${lab(d)}</div>`}
+  <div class="seg" style="margin-bottom:12px">${SP.map(([k,l])=>`<button class="${A.sport===k?'on':''}" data-addsport="${k}">${l}</button>`).join('')}</div>
+  ${A.sport?`<div class="dsopts">${L.filter(x=>x.cat===A.sport).map(x=>`<button data-addx="${esc(x.id)}"><b>${esc(x.t)}</b></button>`).join('')}</div>`:'<p class="hint">Choisis un sport.</p>'}
+  <p class="hint">La séance s'ajoute à ton programme sans modifier les autres. Tu pourras la retirer avec ⋯.</p>`; }
+function openAdd(days){ if(modalKind) closeModal(); ADD={days,day:days[0],sport:null}; modalKind='add'; addSheet(); $('#modal').classList.add('show'); }
 /* fenêtre après « Fait » : comme prévu / différemment / pas faite + ressenti */
 function doneSheet(k){ const s=SESS[k]; if(!s) return; if(modalKind==='fiche') closeModal(); modalKind='done'; const fe=(S.feel||{})[k]||{}, ek=esc(k);
   $('#sheet').innerHTML=`<h3>Bravo ! Comment s'est passée ta séance ?</h3><div class="small mut" style="margin:-4px 0 12px">${esc(dispTitle(s))}</div>
@@ -1396,6 +1430,11 @@ document.addEventListener('click',async e=>{
   // programme
   if(t=e.target.closest('[data-m]')){ cur=new Date(cur.getFullYear(),cur.getMonth()+(+t.dataset.m),1); showPastWeeks=false; render(); return; }
   if(e.target.closest('[data-showpast]')){ showPastWeeks=true; if(modalKind) closeModal(); render(); return; }
+  if(t=e.target.closest('[data-addday]')){ const ds=t.dataset.addday.split(',').filter(Boolean); if(ds.length) openAdd(ds); return; }
+  if(t=e.target.closest('[data-addpick]')){ ADD.day=t.dataset.addpick; addSheet(); return; }
+  if(t=e.target.closest('[data-addsport]')){ ADD.sport=t.dataset.addsport; addSheet(); return; }
+  if(t=e.target.closest('[data-addx]')){ S.adds=S.adds||[]; S.adds.push({id:'a'+Date.now().toString(36),date:ADD.day,x:t.dataset.addx}); save(); closeModal(); render(); toast('Séance ajoutée'); return; }
+  if(t=e.target.closest('[data-unadd]')){ const id=t.dataset.unadd; S.adds=(S.adds||[]).filter(a=>a.id!==id); save(); if(modalKind) closeModal(); render(); toast('Séance retirée'); return; }
   if(t=e.target.closest('[data-dfeel]')){ const k=t.dataset.key; S.feel[k]=Object.assign({},S.feel[k],{r:+t.dataset.dfeel}); save(); t.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===t)); return; }
   if(e.target.closest('[data-dsok]')){ closeModal(); render(); toast('Séance faite ✓'); return; }
   if(t=e.target.closest('[data-dsdiff]')){ const k=t.dataset.dsdiff; closeModal(); openFiche(k); setTimeout(()=>{ const d=document.getElementById('editbox'); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'start'}); } },80); return; }
@@ -1975,7 +2014,7 @@ function todayView(){
   if(fat&&c.phase!=='Assimilation') h+=`<div class="alert"><b>Ça tire un peu.</b> Tes dernières séances ont été notées dures (moyenne ${v1(fat.avg)}/5). Une semaine allégée t'aidera à assimiler.<div style="margin-top:8px"><button class="btn sm" data-allege="1">Alléger cette semaine</button></div></div>`;
   h+=`<div class="sectitle" style="margin-top:4px">${now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>`;
   if(ss.length) ss.forEach(s=>h+=heroHTML(ws,dk,s,"Aujourd'hui · "+TAGOF(s)));
-  else { h+=`<div class="hero"><div class="kick" style="color:var(--ok)">Aujourd'hui</div><h2 class="cond">${off?esc(off.title):'Repos'}</h2><div class="small mut">${off?'Prends soin de toi.':'Récupère bien : c\'est là que la forme se construit.'}</div></div>`;
+  else { h+=`<div class="hero"><div class="kick" style="color:var(--ok)">Aujourd'hui</div><h2 class="cond">${off?esc(off.title):'Repos'}</h2><div class="small mut">${off?'Prends soin de toi.':'Récupère bien : c\'est là que la forme se construit.'}</div>${off||ROO()?'':`<button class="btn ghost" data-addday="${ymd(now)}" style="width:100%;margin-top:12px">+ Ajouter une séance</button>`}</div>`;
     for(let k=1;k<8;k++){ const d=addDays(now,k), W2=EN.buildWeek(mondayOf(d)), s2=W2.days[wd(d)].filter(s=>s.cat!=='off'); if(s2.length){ h+=heroHTML(mondayOf(d),ymd(d),s2[0],'Prochaine séance · '+(k===1?'demain':d.toLocaleDateString('fr-FR',{weekday:'long'}))); break; } } }
   { const x=dayExtras(ws,dk,i,W); if(x) h+=`<div class="sessions" style="margin:-4px 0 12px">${x}</div>`; }
   if(ss.length){ const d=addDays(now,1), W2=EN.buildWeek(mondayOf(d)), s2=W2.days[wd(d)].filter(s=>s.cat!=='off');
@@ -2334,6 +2373,7 @@ const gLink=p=>location.origin+location.pathname+'#k='+p.key;
 function purgeOld(o){ if(!o||typeof o!=='object') return o; const lim=ymd(addDays(new Date(),-61)); const old=k=>String(k).slice(0,10)<lim;
   for(const f of ['done','feel','moves','swaps','edits','real','plan','useApp','hidden','useLog']) if(o[f]&&typeof o[f]==='object') for(const k of Object.keys(o[f])) if(old(k)) delete o[f][k];
   if(Array.isArray(o.customs)) o.customs=o.customs.filter(c=>!c.date||c.date>=lim);
+  if(Array.isArray(o.adds)) o.adds=o.adds.filter(c=>!c.date||c.date>=lim);
   if(Array.isArray(o.blocks)) o.blocks=o.blocks.filter(b=>!b.to||b.to>=lim);
   if(Array.isArray(o.imports)) o.imports=o.imports.filter(m=>!m.to||m.to>=lim);
   const lim6=ymd(addDays(new Date(),-183)); if(Array.isArray(o.races)) o.races=o.races.filter(r=>!r.date||r.date>=lim6);
@@ -2527,7 +2567,7 @@ function gDoImport(){ if(!gImport) return; const L=gImport.list; gImport=null; c
 const ENGK=['vma','age','sex','level','avail','lrDay','maxRun','weekdayMax','vmaMode','mixWeek','swimAllYear','swimMin','swim100','css','noClub','prefs','hillMax'];
 function pubOf(p){ const eng={}; ENGK.forEach(k=>{ if(p.data.profile[k]!==undefined) eng[k]=p.data.profile[k]; });
   const D=p.data, real={}; Object.entries(D.real||{}).forEach(([k,x])=>{ real[k]={t:x.t,dur:x.dur,km:x.km}; });
-  eng.act=JSON.stringify({done:D.done||{},moves:D.moves||{},swaps:D.swaps||{},customs:D.customs||[],edits:D.edits||{},real,plan:D.plan||{},imports:D.imports||[],useApp:D.useApp||{},hidden:D.hidden||{}});
+  eng.act=JSON.stringify({done:D.done||{},moves:D.moves||{},swaps:D.swaps||{},customs:D.customs||[],adds:D.adds||[],edits:D.edits||{},real,plan:D.plan||{},imports:D.imports||[],useApp:D.useApp||{},hidden:D.hidden||{}});
   return JSON.parse(JSON.stringify({name:p.name,color:p.color,races:p.data.races||[],eng,blocks:(p.data.blocks||[]).map(b=>({kind:b.kind,from:b.from,to:b.to,id:b.id||null}))})); }
 function pubProfile(id,pb){ let act={}; try{ act=JSON.parse((pb.eng||{}).act||'{}'); }catch(e){}
   const eng=Object.assign({},pb.eng||{}); delete eng.act;
@@ -2787,7 +2827,7 @@ document.addEventListener('input',e=>{ if(modalKind!=='wiz'||!WZ) return; const 
 document.addEventListener('click',e=>{ if(e.target.closest('[data-wzopen]')){ wzStart(); } });
 
 /* ===================== mise à jour automatique (version hébergée) ===================== */
-const BUILD='20261119201224';
+const BUILD='20261124084946';
 if(STANDALONE&&location.protocol==='https:'&&!window.__FBMOCK){
   let busy=false;
   const idle=()=>{ const ae=document.activeElement; return !modalKind&&!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)); };
@@ -2883,14 +2923,16 @@ document.addEventListener('click',e=>{ let t;
   if(t=e.target.closest('[data-dashs]')){ const k=t.dataset.dashs; if(DASHS===k) DASHD=-DASHD; else { DASHS=k; DASHD=k==='name'?1:-1; } render(); return; } });
 
 /* ===================== menus « ⋯ », vue compacte, synchro ===================== */
-function actMenuHTML(s){ const k=esc(s.key), it=[];
+function actMenuHTML(s){ const k=esc(s.key), it=[], dk=String(s.key).slice(0,10);
   if(s.cat!=='race'&&s.cat!=='off') it.push(['✎','Noter ce que j\'ai fait',`data-realopen="${k}"`]);
   if(s.cat!=='race'&&s.cat!=='off') it.push(['✎','Modifier la séance',`data-mact="edit" data-key="${k}"`]);
   if(s.alts) it.push(['↻','Changer de séance',`data-chg="${k}"`]);
   if(s.wk&&s.cat==='run') it.push(['⌚','Éditer pour la montre',`data-tow="${k}"`]);
   if(s.cat!=='race'&&s.cat!=='off') it.push(['⇄','Changer de jour',`data-mact="move" data-key="${k}"`]);
   if(s.cat!=='off') it.push(['📅','Ajouter à mon agenda',`data-mact="cal" data-key="${k}"`]);
-  if(s.cat!=='race'&&s.cat!=='off') it.push(['🗑','Supprimer la séance',`data-hide="${k}" class="danger"`]);
+  if(dk>=TODAY&&s.cat!=='off') it.push(['+','Ajouter une séance ce jour',`data-addday="${dk}"`]);
+  if(s.aid) it.push(['🗑','Retirer cette séance ajoutée',`data-unadd="${esc(s.aid)}" class="danger"`]);
+  else if(s.cat!=='race'&&s.cat!=='off') it.push(['🗑','Supprimer la séance',`data-hide="${k}" class="danger"`]);
   return it.map(([i,l,a])=>`<button ${a}><span>${i}</span>${l}</button>`).join(''); }
 document.addEventListener('click',e=>{ let t;
   if(t=e.target.closest('[data-more]')){ e.stopPropagation(); const s=SESS[t.dataset.more]; if(!s) return; const m=t.closest('.acts').nextElementSibling; if(!m) return;
@@ -3070,11 +3112,11 @@ function planSession(it,data,dk,idx){ const by=it.by||'moi', title='Séance '+by
 function applyPlan(r,data,ws){ const imps=data.imports; if(!imps||!imps.length) return r; const P=data.plan||{}, U=data.useApp||{};
   for(let i=0;i<7;i++){ const dk=ymd(addDays(ws,i)); if(!imps.some(m=>dk>=m.from&&dk<=m.to)) continue;
     const day=r.days[i], items=(P[dk]||[]).filter(x=>x.p&&x.p.kind!=='rest'), imp=items.map((it,j)=>planSession(it,data,dk,j));
-    const appRuns=day.filter(s=>s.cat==='run'&&!s.custom&&!s.imported);
+    const appRuns=day.filter(s=>s.cat==='run'&&!s.custom&&!s.imported&&!s.added);
     if(U[dk]){ if(imp.length) appRuns.forEach(s=>{ s.planAlt=imp.map(x=>x.sum); s.planBy=imp[0].title; }); else appRuns.forEach(s=>{ s.planAlt=['Repos dans le plan importé']; s.planBy='le plan importé'; }); continue; }
     imp.forEach(s=>{ s.appAlt=appRuns.map(a=>({title:a.title,sum:a.sum})); });
     if(!data.profile.noAppSugg&&appRuns.length){ r.ghosts=r.ghosts||{}; r.ghosts[i]=appRuns.map(a=>Object.assign({},a,{ghost:true,key:'G|'+a.key,restDay:!imp.length})); }
-    r.days[i]=day.filter(s=>!(s.cat==='run'&&!s.custom&&!s.imported)).concat(imp); }
+    r.days[i]=day.filter(s=>!(s.cat==='run'&&!s.custom&&!s.imported&&!s.added)).concat(imp); }
   // déplacements des séances importées (dans la semaine)
   const M=data.moves||{}, mv=[];
   for(let i=0;i<7;i++) r.days[i]=r.days[i].filter(s=>{ if(!s.imported) return true; const t=M[s.key]; if(t&&t!==s.orig){ const j=Math.round((parseD(t)-ws)/864e5); if(j>=0&&j<7&&j!==i){ s.moved=true; mv.push([j,s]); return false; } } return true; });
